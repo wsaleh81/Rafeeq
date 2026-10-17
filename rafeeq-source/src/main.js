@@ -1,4 +1,5 @@
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
+const Compass = registerPlugin("Compass");
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { Geolocation } from "@capacitor/geolocation";
 import DATA from "./data.json";
@@ -107,18 +108,40 @@ function headingFrom(e) {
   let h = Math.atan2(rA, rB); if (h < 0) h += 2 * Math.PI;
   return h * 180 / Math.PI;
 }
-let lastSensor = 0;
+let lastSensor = 0, sm = null;
+function smooth(h) {
+  const r = h * Math.PI / 180;
+  if (!sm) sm = { x: Math.cos(r), y: Math.sin(r) }; else { sm.x += 0.2 * (Math.cos(r) - sm.x); sm.y += 0.2 * (Math.sin(r) - sm.y); }
+  const d = Math.atan2(sm.y, sm.x) * 180 / Math.PI; return d < 0 ? d + 360 : d;
+}
+function nativeSetLoc() { if (Capacitor.isNativePlatform()) Compass.setLocation({ lat: S.place.lat, lon: S.place.lon, alt: 0 }).catch(() => {}); }
+let nativeCompass = false;
+async function startNative() {
+  if (nativeCompass) return true;
+  try {
+    nativeSetLoc();
+    const r = await Compass.start();
+    if (!r.available) return false;
+    if (!sensor.nl) sensor.nl = await Compass.addListener("heading", e => {
+      sensor.heading = e.heading; sensor.accuracy = e.accuracy;
+      if (S.tab === 0 && !S.preview) updateDial();
+    });
+    nativeCompass = true; sensor.listening = true; return true;
+  } catch (e) { return false; }
+}
+function stopNative() { if (nativeCompass) { Compass.stop().catch(() => {}); nativeCompass = false; sensor.listening = false; sensor.heading = null; } }
 function onOrient(e) {
   if (e.type === "deviceorientation" && sensor.absSeen && e.webkitCompassHeading == null) return;
   if (e.type === "deviceorientationabsolute") sensor.absSeen = true;
   if (e.type === "deviceorientation" && e.webkitCompassHeading == null && e.absolute !== true) return;
   const h = headingFrom(e); if (h == null || isNaN(h)) return;
-  sensor.heading = h; sensor.accuracy = e.webkitCompassAccuracy ?? null;
+  sensor.heading = smooth(h); sensor.accuracy = e.webkitCompassAccuracy ?? null;
   const now = performance.now(); if (now - lastSensor < 40) return; lastSensor = now;
   if (S.tab === 0 && !S.preview) updateDial();
 }
 async function startCompass() {
   if (sensor.listening) return;
+  if (Capacitor.isNativePlatform()) { if (await startNative()) return; sensor.available = false; if (S.tab === 0) render(); return; }
   try {
     if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
       const r = await DeviceOrientationEvent.requestPermission();
@@ -179,7 +202,7 @@ async function useGPS(silent) {
     } else if (near.d >= 40) { iso = near.c.iso; }
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || near.c.tz;
     S.place = { name, country, lat, lon, tz, iso, gps: true }; S.gps = true; save();
-    gpsState = "ok"; weather = null; loadWeather(); scheduleAlerts(); render();
+    nativeSetLoc(); gpsState = "ok"; weather = null; loadWeather(); scheduleAlerts(); render();
   } catch (e) { gpsState = "denied"; render(); }
 }
 let gpsState = "idle", gpsAcc = null;
@@ -327,6 +350,7 @@ function viewQibla() {
     else if (needsPerm() && !sensor.listening) note = `<button class="btn" data-act="compass">${ar() ? "تشغيل البوصلة" : "Start the compass"}</button>`;
     else if (!sensor.available) note = L("This device has no compass. Turn on preview mode in Settings.");
     else if (sensor.heading == null) note = L("Starting the compass…");
+    else if (nativeCompass) note = (sensor.accuracy != null && sensor.accuracy < 2) ? (ar() ? "البوصلة تحتاج إلى معايرة. حرّك هاتفك على شكل رقم ٨." : "Compass needs calibration. Move your phone in a figure of eight.") : "";
     else note = ar() ? "يعرض الشمال المغناطيسي. حرّك هاتفك على شكل ٨ للمعايرة." : "Showing magnetic north. Move your phone in a figure of eight to calibrate.";
   }
   const acc = gpsAcc != null ? `±${Math.round(gpsAcc)} ${L("m")}` : (ar() ? "لا يوجد تحديد" : "no fix yet");
@@ -529,7 +553,7 @@ function remoteSearch(q) {
 function renderSheet() { const el = $("#sheet"); el.innerHTML = pickerOpen ? viewPicker() : ""; }
 function choose(c) {
   if (pickerOpen === "m") { mosqueAround = c; mosqueState.key = ""; pickerOpen = null; renderSheet(); loadMosques(true); return; }
-  S.place = { ...c }; S.gps = false; save(); weather = null; pickerOpen = null; renderSheet(); loadWeather(); scheduleAlerts(); render();
+  S.place = { ...c }; S.gps = false; save(); nativeSetLoc(); weather = null; pickerOpen = null; renderSheet(); loadWeather(); scheduleAlerts(); render();
 }
 
 /* ---------- render & events ---------- */
@@ -539,7 +563,7 @@ function render() {
   const v = $("#view"), st = v.scrollTop;
   v.innerHTML = [viewQibla, viewPrayer, viewMosques, viewAzkhar, viewSettings][S.tab]();
   $("#tabs").innerHTML = TABS.map((t, i) => `<button class="tab ${i === S.tab ? "sel" : ""}" data-act="tab" data-i="${i}">${I[t[1]]}<span>${L(t[0])}</span></button>`).join("");
-  if (S.tab === 0) afterQibla(); else dialEls = null;
+  if (S.tab === 0) afterQibla(); else { dialEls = null; stopNative(); }
   if (S.tab === 1) tickPrayer();
   if (S.tab === 2) loadMosques();
   v.scrollTop = st;
