@@ -1,4 +1,4 @@
-import { X } from "./langs.js";
+import { X, U } from "./langs.js";
 import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { Geolocation } from "@capacitor/geolocation";
@@ -30,9 +30,9 @@ let S = { ...DEF };
 try { Object.assign(S, JSON.parse(localStorage.getItem("rafeeq") || "{}")); } catch (e) {}
 const save = () => { try { localStorage.setItem("rafeeq", JSON.stringify(S)); } catch (e) {} };
 const ar = () => S.lang === "ar";
-const F = (t, ...a) => { const x = (X[S.lang] && X[S.lang].tpl[t]) || t; return x.replace(/\{(\d)\}/g, (_, i) => a[i]); };
+const F = (t, ...a) => { const x = (U[S.lang] && U[S.lang].tpl[t]) || t; return x.replace(/\{(\d)\}/g, (_, i) => a[i]); };
 const rtl = () => S.lang === "ar" || S.lang === "ur";
-const L = s => (ar() ? (AR[s] || s) : ((X[S.lang] && X[S.lang].ui[s]) || s));
+const L = s => (ar() ? (AR[s] || s) : ((U[S.lang] && U[S.lang].ui[s]) || s));
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const $ = (s, r = document) => r.querySelector(s);
 const method = () => METHODS.find(m => m.id === S.method) || METHODS[0];
@@ -363,8 +363,8 @@ function viewPrayer() {
   const now = Date.now(), p = S.place;
   const shownMs = now + prayDay * 86400000;
   const day = prayDay === 0 ? prayerEvents(now, p.lat, p.lon, p.tz, method(), S.hanafi, offs()).today : dayFor(shownMs, p.lat, p.lon, p.tz, method(), S.hanafi, offs());
-  const greg = new Intl.DateTimeFormat(ar() ? "ar-u-nu-latn" : X[S.lang] ? S.lang + "-u-nu-latn" : "en-GB", { timeZone: p.tz, weekday: "long", day: "numeric", month: "long" }).format(new Date(shownMs));
-  const hij = new Intl.DateTimeFormat((ar() || !X[S.lang] ? "ar-SA" : S.lang) + "-u-ca-islamic-umalqura-nu-latn", { timeZone: p.tz, day: "numeric", month: "long", year: "numeric" }).format(new Date(shownMs)).replace(/\s*هـ$/, "") + (X[S.lang] ? "" : " هـ");
+  const greg = new Intl.DateTimeFormat(ar() ? "ar-u-nu-latn" : U[S.lang] ? S.lang + "-u-nu-latn" : "en-GB", { timeZone: p.tz, weekday: "long", day: "numeric", month: "long" }).format(new Date(shownMs));
+  const hij = new Intl.DateTimeFormat((ar() || !U[S.lang] ? "ar-SA" : S.lang) + "-u-ca-islamic-umalqura-nu-latn", { timeZone: p.tz, day: "numeric", month: "long", year: "numeric" }).format(new Date(shownMs)).replace(/\s*هـ$/, "") + (U[S.lang] ? "" : " هـ");
   const rows = PRAYERS.map(k => {
     const muted = S.muted[k];
     return `<div class="prow" id="r-${k}" data-k="${k}">
