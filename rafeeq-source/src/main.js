@@ -1,3 +1,4 @@
+import { X } from "./langs.js";
 import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { Geolocation } from "@capacitor/geolocation";
@@ -29,14 +30,16 @@ let S = { ...DEF };
 try { Object.assign(S, JSON.parse(localStorage.getItem("rafeeq") || "{}")); } catch (e) {}
 const save = () => { try { localStorage.setItem("rafeeq", JSON.stringify(S)); } catch (e) {} };
 const ar = () => S.lang === "ar";
-const L = s => (ar() ? (AR[s] || s) : s);
+const F = (t, ...a) => { const x = (X[S.lang] && X[S.lang].tpl[t]) || t; return x.replace(/\{(\d)\}/g, (_, i) => a[i]); };
+const rtl = () => S.lang === "ar" || S.lang === "ur";
+const L = s => (ar() ? (AR[s] || s) : ((X[S.lang] && X[S.lang].ui[s]) || s));
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const $ = (s, r = document) => r.querySelector(s);
 const method = () => METHODS.find(m => m.id === S.method) || METHODS[0];
 const iso3 = c => DATA.iso3[c] || c;
 const CITIES = DATA.cities.map(c => ({ name: c[0], country: c[1], lat: c[2], lon: c[3], tz: c[4], iso: c[5] }));
 
-const LANGS = [["ar", "العربية · Arabic"], ["en", "English · English"], ["tr", "Türkçe · Turkish"], ["fr", "Français · French"], ["it", "Italiano · Italian"], ["de", "Deutsch · German"], ["nl", "Nederlands · Dutch"], ["es", "Español · Spanish"]];
+const LANGS = [["ar", "العربية · Arabic"], ["en", "English · English"], ["tr", "Türkçe · Turkish"], ["fr", "Français · French"], ["it", "Italiano · Italian"], ["de", "Deutsch · German"], ["nl", "Nederlands · Dutch"], ["es", "Español · Spanish"], ["ur", "اردو · Urdu"], ["ta", "தமிழ் · Tamil"], ["ru", "Русский · Russian"]];
 const PNAME_EN = { fajr: "Fajr", sunrise: "Sunrise", dhuhr: "Dhuhr", asr: "Asr", maghrib: "Maghrib", isha: "Isha" };
 const PNAME_AR = { fajr: "الفجر", sunrise: "الشروق", dhuhr: "الظهر", asr: "العصر", maghrib: "المغرب", isha: "العشاء" };
 const PNAME_LOCAL = {
@@ -47,14 +50,15 @@ const PNAME_LOCAL = {
   nl: { fajr: "Fadjr (Dageraad)", sunrise: "Zonsopkomst", dhuhr: "Dhuhr (Middag)", asr: "Asr (Namiddag)", maghrib: "Maghrib (Zonsondergang)", isha: "Isja (Nacht)" },
   es: { fajr: "Fajr (Alba)", sunrise: "Amanecer", dhuhr: "Dhuhr (Mediodía)", asr: "Asr (Tarde)", maghrib: "Magrib (Atardecer)", isha: "Isha (Noche)" },
 };
-const pName = p => (ar() ? PNAME_AR[p] : PNAME_EN[p]);
-const pLocal = p => (PNAME_LOCAL[S.lang] || PNAME_AR)[p];
+const pName = p => (ar() ? PNAME_AR[p] : X[S.lang] ? X[S.lang].prayer[p] : PNAME_EN[p]);
+const pLocal = p => (X[S.lang] ? PNAME_EN[p] : (PNAME_LOCAL[S.lang] || PNAME_AR)[p]);
 const CAT_TITLES = {
   ar: ["الصباح", "المساء", "بعد الصلاة", "النوم", "السفر"], en: ["Morning", "Evening", "After prayer", "Sleep", "Travel"],
   tr: ["Sabah", "Akşam", "Namaz sonrası", "Uyku", "Yolculuk"], fr: ["Matin", "Soir", "Après la prière", "Sommeil", "Voyage"],
   it: ["Mattina", "Sera", "Dopo la preghiera", "Sonno", "Viaggio"], de: ["Morgen", "Abend", "Nach dem Gebet", "Schlaf", "Reise"],
   nl: ["Ochtend", "Avond", "Na het gebed", "Slaap", "Reis"], es: ["Mañana", "Tarde", "Tras la oración", "Dormir", "Viaje"],
 };
+Object.keys(X).forEach(k => { CAT_TITLES[k] = X[k].cats; });
 const CATS = ["morning", "evening", "afterPrayer", "sleep", "travel"];
 const catTitle = i => (CAT_TITLES[S.lang] || CAT_TITLES.en)[i];
 
@@ -87,7 +91,7 @@ function applyTheme() {
   r.setProperty("--zg", "#35D07F"); r.setProperty("--zy", "#FFC83D"); r.setProperty("--zr", "#FF5A5F"); r.setProperty("--sun", "#FF9F1C");
   r.setProperty("--ts", String(+S.textSize || 1)); r.setProperty("--as", String(+S.azkarSize || 1));
   document.documentElement.style.fontSize = 16 * (+S.textSize || 1) + "px";
-  document.documentElement.dir = ar() ? "rtl" : "ltr";
+  document.documentElement.dir = rtl() ? "rtl" : "ltr";
   document.documentElement.lang = S.lang;
   document.body.classList.toggle("bold", !!S.bold);
   document.body.classList.toggle("dark", dark);
@@ -198,10 +202,10 @@ async function scheduleAlerts() {
       .filter(e => e.date > now && (e.prayer !== "sunrise" || S.sunriseAlert) && !S.muted[e.prayer]);
     const list = []; let id = 1;
     for (const e of ev.slice(0, 120)) {
-      const nm = ar() ? PNAME_AR[e.prayer] : PNAME_EN[e.prayer];
-      list.push({ id: id++, title: ar() ? `حان وقت ${nm}` : `Time for ${nm}`, body: p.name, channelId: "adhan", schedule: { at: new Date(e.date), allowWhileIdle: true } });
+      const nm = pName(e.prayer);
+      list.push({ id: id++, title: ar() ? `حان وقت ${nm}` : F("Time for {0}", nm), body: p.name, channelId: "adhan", schedule: { at: new Date(e.date), allowWhileIdle: true } });
       if (S.remind > 0 && e.date - S.remind * 60000 > now)
-        list.push({ id: id++, title: ar() ? `${nm} بعد ${S.remind} دقيقة` : `${nm} in ${S.remind} minutes`, body: p.name, channelId: "adhan", schedule: { at: new Date(e.date - S.remind * 60000), allowWhileIdle: true } });
+        list.push({ id: id++, title: ar() ? `${nm} بعد ${S.remind} دقيقة` : F("{0} in {1} minutes", nm, S.remind), body: p.name, channelId: "adhan", schedule: { at: new Date(e.date - S.remind * 60000), allowWhileIdle: true } });
     }
     for (let i = 0; i < list.length; i += 50) await LocalNotifications.schedule({ notifications: list.slice(i, i + 50) });
   } catch (e) { console.log("alerts", e); }
@@ -224,7 +228,7 @@ const pad = n => String(n).padStart(2, "0");
 const cd = ms => { const s = Math.max(0, Math.floor(ms / 1000)); return `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`; };
 
 /* ---------- UI pieces ---------- */
-const title = (en, arT) => (ar() ? `<div class="ptitle ar">${arT}</div>` : `<div class="ptitle"><span>${en}</span><span class="ar">${arT}</span></div>`);
+const title = (en, arT) => (ar() ? `<div class="ptitle ar">${arT}</div>` : `<div class="ptitle"><span>${L(en)}</span><span class="ar">${arT}</span></div>`);
 const badge = c => `<span class="iso">${esc(iso3((c || "--").toUpperCase()))}</span>`;
 let prayDay = 0, azkarCat = null, azkarCounts = {}, mosqueAround = null, mosqueState = { loading: false, list: [], failed: false, key: "" };
 let pickerOpen = null, pickerQuery = "", pickerRemote = [], sheet = null;
@@ -295,10 +299,10 @@ function sunLayerSVG(sn) {
 function target() { return S.preview ? previewDeg : sensor.heading; }
 function zoneColor(d) { if (d == null) return "var(--muted)"; const a = Math.abs(d); return a > 45 ? "var(--zr)" : a > 15 ? "var(--zy)" : "var(--zg)"; }
 function qibText(d) {
-  if (d == null) return [L("Finding the compass"), ar() ? `القبلة ${Math.round(qiblaDeg())}° من الشمال الحقيقي` : `Qibla is ${Math.round(qiblaDeg())}° ${cardinal(qiblaDeg())} of true north`];
+  if (d == null) return [L("Finding the compass"), ar() ? `القبلة ${Math.round(qiblaDeg())}° من الشمال الحقيقي` : F("Qibla is {0}° {1} of true north", Math.round(qiblaDeg()), cardinal(qiblaDeg()))];
   const a = Math.abs(d);
   if (a <= 3) return [L("You're facing the Qibla"), L("Hold steady, then begin your prayer")];
-  return [ar() ? `لُف ${d > 0 ? "يمينًا" : "يسارًا"} ${Math.round(a)}°` : `Turn ${d > 0 ? "right" : "left"} ${Math.round(a)}°`,
+  return [ar() ? `لُف ${d > 0 ? "يمينًا" : "يسارًا"} ${Math.round(a)}°` : F(d > 0 ? "Turn right {0}°" : "Turn left {0}°", Math.round(a)),
     L(a <= 15 ? "Almost there, hold steady" : a <= 45 ? "Getting closer, keep turning" : "Rotate until the Kaaba reaches the top")];
 }
 function updateDial() {
@@ -324,21 +328,21 @@ function viewQibla() {
   let note = "";
   if (!S.preview) {
     if (sensor.denied) note = L("This device has no compass. Turn on preview mode in Settings.");
-    else if (needsPerm() && !sensor.listening) note = `<button class="btn" data-act="compass">${ar() ? "تشغيل البوصلة" : "Start the compass"}</button>`;
+    else if (needsPerm() && !sensor.listening) note = `<button class="btn" data-act="compass">${ar() ? "تشغيل البوصلة" : F("Start the compass")}</button>`;
     else if (!sensor.available) note = L("This device has no compass. Turn on preview mode in Settings.");
     else if (sensor.heading == null) note = L("Starting the compass…");
-    else note = ar() ? "يعرض الشمال المغناطيسي. حرّك هاتفك على شكل ٨ للمعايرة." : "Showing magnetic north. Move your phone in a figure of eight to calibrate.";
+    else note = ar() ? "يعرض الشمال المغناطيسي. حرّك هاتفك على شكل ٨ للمعايرة." : F("Showing magnetic north. Move your phone in a figure of eight to calibrate.");
   }
-  const acc = gpsAcc != null ? `±${Math.round(gpsAcc)} ${L("m")}` : (ar() ? "لا يوجد تحديد" : "no fix yet");
+  const acc = gpsAcc != null ? `±${Math.round(gpsAcc)} ${L("m")}` : (ar() ? "لا يوجد تحديد" : F("no fix yet"));
   return `${title("Qibla", "القبلة")}
   <div class="row between gap"><div style="flex:1;min-width:0">${placeBtn()}</div>${weatherChip()}</div>
-  <div class="srcline"><i class="dot ${net.online ? "on" : ""}"></i>${ar() ? (net.online ? `متصل · GPS ${acc}` : `دون اتصال · GPS والبوصلة · ${acc}`) : (net.online ? `Online · GPS ${acc}` : `Offline · using GPS and compass · ${acc}`)}</div>
+  <div class="srcline"><i class="dot ${net.online ? "on" : ""}"></i>${ar() ? (net.online ? `متصل · GPS ${acc}` : `دون اتصال · GPS والبوصلة · ${acc}`) : (net.online ? F("Online · GPS {0}", acc) : F("Offline · using GPS and compass · {0}", acc))}</div>
   <div class="dialwrap"><div class="dial">${dialSVG()}</div></div>
   <div class="card qcard">
     <div class="status" id="qstatus"><div class="zbtn" id="qi">${I.rot}</div><div class="stxt"><div class="st1" id="qt"></div><div class="st2" id="qs"></div></div></div>
     <div class="tiles">
-      ${tile("☀️↑", "Sunrise", clock(today.sunrise, p.tz), (ar() ? "عند " : "at ") + Math.round(sn.riseAz) + "°")}
-      ${tile("☀️↓", "Sunset", clock(today.maghrib, p.tz), (ar() ? "عند " : "at ") + Math.round(sn.setAz) + "°")}
+      ${tile("☀️↑", "Sunrise", clock(today.sunrise, p.tz), (ar() ? "عند " + Math.round(sn.riseAz) + "°" : F("at {0}°", Math.round(sn.riseAz))))}
+      ${tile("☀️↓", "Sunset", clock(today.maghrib, p.tz), (ar() ? "عند " + Math.round(sn.setAz) + "°" : F("at {0}°", Math.round(sn.setAz))))}
       ${tile("↔", "Distance", km.toLocaleString("en-US"), L("km to Makkah"))}
     </div>
   </div>
@@ -359,8 +363,8 @@ function viewPrayer() {
   const now = Date.now(), p = S.place;
   const shownMs = now + prayDay * 86400000;
   const day = prayDay === 0 ? prayerEvents(now, p.lat, p.lon, p.tz, method(), S.hanafi, offs()).today : dayFor(shownMs, p.lat, p.lon, p.tz, method(), S.hanafi, offs());
-  const greg = new Intl.DateTimeFormat(ar() ? "ar-u-nu-latn" : "en-GB", { timeZone: p.tz, weekday: "long", day: "numeric", month: "long" }).format(new Date(shownMs));
-  const hij = new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura-nu-latn", { timeZone: p.tz, day: "numeric", month: "long", year: "numeric" }).format(new Date(shownMs)).replace(/\s*هـ$/, "") + " هـ";
+  const greg = new Intl.DateTimeFormat(ar() ? "ar-u-nu-latn" : X[S.lang] ? S.lang + "-u-nu-latn" : "en-GB", { timeZone: p.tz, weekday: "long", day: "numeric", month: "long" }).format(new Date(shownMs));
+  const hij = new Intl.DateTimeFormat((ar() || !X[S.lang] ? "ar-SA" : S.lang) + "-u-ca-islamic-umalqura-nu-latn", { timeZone: p.tz, day: "numeric", month: "long", year: "numeric" }).format(new Date(shownMs)).replace(/\s*هـ$/, "") + (X[S.lang] ? "" : " هـ");
   const rows = PRAYERS.map(k => {
     const muted = S.muted[k];
     return `<div class="prow" id="r-${k}" data-k="${k}">
@@ -371,12 +375,12 @@ function viewPrayer() {
   }).join("");
   return `${title("Prayer Times", "مواقيت الصلاة")}
   <div class="row between gap">${placeBtn()}<button class="iconbtn" data-act="refreshGPS" aria-label="GPS">${I.refresh}</button></div>
-  <div class="datebar"><button class="iconbtn sm" data-act="day" data-d="-1">${ar() ? I.right : I.left}</button>
+  <div class="datebar"><button class="iconbtn sm" data-act="day" data-d="-1">${rtl() ? I.right : I.left}</button>
     <div class="dates"><b>${greg}</b><span>${hij}</span></div>
-    <button class="iconbtn sm" data-act="day" data-d="1">${ar() ? I.left : I.right}</button></div>
+    <button class="iconbtn sm" data-act="day" data-d="1">${rtl() ? I.left : I.right}</button></div>
   <div class="hero" id="hero"></div>
   <div class="plist">${rows}</div>
-  <div class="foot">${ar() ? `تم الحساب على هذا الجهاز · طريقة ${L(method().name)}` : `Calculated on this device · ${method().name} method`}</div>`;
+  <div class="foot">${ar() ? `تم الحساب على هذا الجهاز · طريقة ${L(method().name)}` : F("Calculated on this device · {0} method", L(method().name))}</div>`;
 }
 function tickPrayer() {
   const hero = $("#hero"); if (!hero) return;
@@ -388,7 +392,7 @@ function tickPrayer() {
     const frac = prev ? Math.min(1, Math.max(0, (now - prev.date) / (next.date - prev.date))) : 0;
     const C = 2 * Math.PI * 64;
     hero.innerHTML = `<div class="ringwrap"><svg viewBox="0 0 150 150"><circle cx="75" cy="75" r="64" fill="none" stroke="var(--tile)" stroke-width="9"/><circle cx="75" cy="75" r="64" fill="none" stroke="var(--accent)" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C * frac} ${C}" transform="rotate(-90 75 75)"/></svg>
-      <div class="rtxt"><div class="r1">${ar() ? `${pName(next.prayer)} بعد` : `${pName(next.prayer)} in`}</div><div class="r2">${cd(next.date - now)}</div><div class="r3">${ar() ? "عند" : "at"} ${clock(next.date, p.tz)}</div></div></div>`;
+      <div class="rtxt"><div class="r1">${ar() ? `${pName(next.prayer)} بعد` : F("{0} in", pName(next.prayer))}</div><div class="r2">${cd(next.date - now)}</div><div class="r3">${ar() ? "عند " + clock(next.date, p.tz) : F("at {0}", clock(next.date, p.tz))}</div></div></div>`;
   }
   for (const k of PRAYERS) {
     const el = $("#r-" + k); if (!el) continue;
@@ -404,7 +408,7 @@ function tickPrayer() {
 function distTxt(m) { return m < 1000 ? `${Math.round(m)} ${L("m")}` : `${(m / 1000).toFixed(1)} ${L("km")}`; }
 function viewMosques() {
   const c = S.place, ms = mosqueState;
-  const lab = S.gps ? `${L("Near me")} · ${c.name}` : (ar() ? `بالقرب من ${c.name}` : `Near ${c.name}`);
+  const lab = S.gps ? `${L("Near me")} · ${c.name}` : (ar() ? `بالقرب من ${c.name}` : F("Near {0}", c.name));
   let body = "";
   if (!net.online && !ms.list.length) body = notice("📴", "You are offline", "Finding mosques needs internet. Prayer times and Qibla keep working without it.");
   else if (ms.loading && !ms.list.length) body = `<div class="center muted pad">${L("Looking for mosques…")}</div>`;
@@ -412,8 +416,8 @@ function viewMosques() {
   else if (!ms.list.length) body = notice("📍", "No mosques found nearby", "Try another city from the menu above.");
   else {
     const f = ms.list[0];
-    body = `<div class="card sug">${mCard(f, true)}</div><div class="sect">${ar() ? "قريبة" : "Nearby"}</div>` + ms.list.slice(1).map(m => `<div class="card mrow">${mCard(m)}</div>`).join("") +
-      `<div class="foot">${ar() ? "المصدر: © مساهمو OpenStreetMap. المسافات بخط مستقيم من موقعك." : "Source: © OpenStreetMap contributors. Distances are straight-line from your position."}</div>`;
+    body = `<div class="card sug">${mCard(f, true)}</div><div class="sect">${ar() ? "قريبة" : F("Nearby")}</div>` + ms.list.slice(1).map(m => `<div class="card mrow">${mCard(m)}</div>`).join("") +
+      `<div class="foot">${ar() ? "المصدر: © مساهمو OpenStreetMap. المسافات بخط مستقيم من موقعك." : F("Source: © OpenStreetMap contributors. Distances are straight-line from your position.")}</div>`;
   }
   return `${title("Mosques", "المساجد")}
   <div class="row between gap"><button class="pill" data-act="mpicker">${I.pin}<span class="pn">${esc(lab)}</span>${I.chev}</button><button class="iconbtn" data-act="mrefresh">${I.refresh}</button></div>${body}`;
@@ -454,14 +458,14 @@ async function loadMosques(force) {
 function viewAzkhar() {
   if (azkarCat != null) return viewAzkharDetail();
   const cards = CATS.map((c, i) => `<button class="acat" data-act="cat" data-i="${i}"><span class="aci ${i === 2 ? "" : ""}">${["🌅", "🌇", I.dua, "🌙", "✈️"][i]}</span><span class="act">${catTitle(i)}</span>${ar() ? "" : `<span class="ar act2">${CAT_TITLES.ar[i]}</span>`}<small>${DATA.azkar[c].length}</small></button>`).join("");
-  return `${title("Azkhar", "الأذكار")}<div class="agrid">${cards}</div><div class="foot">${ar() ? "القرآن: تنزيل · الأذكار: حصن المسلم" : "Quran: Tanzil · Adhkar: Hisn al-Muslim"}</div>`;
+  return `${title("Azkhar", "الأذكار")}<div class="agrid">${cards}</div><div class="foot">${ar() ? "القرآن: تنزيل · الأذكار: حصن المسلم" : L("Quran: Tanzil · Adhkar: Hisn al-Muslim")}</div>`;
 }
 function transOf(d) { return d.tr[S.lang] || d.tr.en || ""; }
 function viewAzkharDetail() {
   const i = azkarCat, items = DATA.azkar[CATS[i]];
-  const hint = { ar: "اضغط على البطاقة للعدّ. النصوص مضمّنة وتعمل بدون إنترنت.", tr: "Saymak için karta dokunun. Metinler çevrimdışı çalışır.", fr: "Touchez une carte pour compter. Les textes fonctionnent hors ligne.", it: "Tocca una scheda per contare. I testi funzionano offline.", de: "Karte antippen zum Zählen. Die Texte funktionieren offline.", nl: "Tik op een kaart om te tellen. De teksten werken offline.", es: "Toca una tarjeta para contar. Los textos funcionan sin conexión." }[S.lang] || "Tap a card to count. Texts work offline.";
-  const done = { ar: "تم", tr: "Tamam", fr: "Terminé", it: "Fatto", de: "Fertig", nl: "Klaar", es: "Hecho" }[S.lang] || "Done";
-  return `<div class="ahead"><button class="iconbtn" data-act="back">${ar() ? I.right : I.left}</button><div class="atitle">${catTitle(i)}</div>${ar() ? "" : `<div class="atitle ar acc">${CAT_TITLES.ar[i]}</div>`}</div>
+  const hint = { ar: "اضغط على البطاقة للعدّ. النصوص مضمّنة وتعمل بدون إنترنت.", tr: "Saymak için karta dokunun. Metinler çevrimdışı çalışır.", fr: "Touchez une carte pour compter. Les textes fonctionnent hors ligne.", it: "Tocca una scheda per contare. I testi funzionano offline.", de: "Karte antippen zum Zählen. Die Texte funktionieren offline.", nl: "Tik op een kaart om te tellen. De teksten werken offline.", es: "Toca una tarjeta para contar. Los textos funcionan sin conexión." }[S.lang] || (X[S.lang] && X[S.lang].hint) || "Tap a card to count. Texts work offline.";
+  const done = { ar: "تم", tr: "Tamam", fr: "Terminé", it: "Fatto", de: "Fertig", nl: "Klaar", es: "Hecho" }[S.lang] || (X[S.lang] && X[S.lang].done) || "Done";
+  return `<div class="ahead"><button class="iconbtn" data-act="back">${rtl() ? I.right : I.left}</button><div class="atitle">${catTitle(i)}</div>${ar() ? "" : `<div class="atitle ar acc">${CAT_TITLES.ar[i]}</div>`}</div>
   ${items.map(d => {
     const n = azkarCounts[d.id] || 0, fin = n >= d.n;
     return `<div class="card dcard ${fin ? "fin" : ""}" data-act="count" data-id="${d.id}" data-n="${d.n}">
@@ -469,7 +473,7 @@ function viewAzkharDetail() {
       ${transOf(d) ? `<hr><div class="dtr">${esc(transOf(d))}</div>` : ""}
       <div class="dref">${esc(d.ref)}</div>
       <div class="dfoot"><div class="dbar"><i style="width:${Math.min(100, n / d.n * 100)}%"></i></div><div class="dcnt" id="c-${d.id}">${fin ? done : `${n} / ${d.n}`}</div></div></div>`;
-  }).join("")}<div class="foot">${hint}</div><div class="foot">${ar() ? "القرآن: تنزيل · الأذكار: حصن المسلم" : "Quran: Tanzil · Adhkar: Hisn al-Muslim"}</div>`;
+  }).join("")}<div class="foot">${hint}</div><div class="foot">${ar() ? "القرآن: تنزيل · الأذكار: حصن المسلم" : L("Quran: Tanzil · Adhkar: Hisn al-Muslim")}</div>`;
 }
 
 /* ----- Settings tab ----- */
@@ -486,18 +490,18 @@ function viewSettings() {
   ${sect("Location", `<button class="srow lbtn" data-act="gps"><div class="sl">${L("Current location")}<small>${S.gps ? esc(S.place.name) : esc(L("Use my location"))}</small></div>${S.gps ? "✓" : ""}</button>` +
     `<button class="srow lbtn" data-act="picker"><div class="sl">${L("Choose a city")}<small>${S.gps ? "" : esc(S.place.name)}</small></div>${S.gps ? "›" : "✓ ›"}</button>` +
     srow(L("Local time there"), `<b class="muted">${tf(S.place.tz).format(new Date())}</b>`, esc(S.place.tz)),
-    ar() ? "الصلاة والقبلة والمساجد والطقس كلها تعتمد على هذا الموقع." : "Prayer times, Qibla, mosques and weather all use this location.")}
+    ar() ? "الصلاة والقبلة والمساجد والطقس كلها تعتمد على هذا الموقع." : F("Prayer times, Qibla, mosques and weather all use this location."))}
   ${sect("theme", `<div class="swatches">${sw}</div>` + srow(L("Appearance"), sel("appearance", [["auto", L("Auto")], ["light", L("Light")], ["dark", L("Dark")]], S.appearance)))}
   ${sect("accessibility", srow(L("Text size"), sel("textSize", tsizes, S.textSize)) + srow(L("Azkhar text size"), sel("azkarSize", asizes, S.azkarSize)) + srow(L("Bold text"), tog("bold", S.bold)))}
   ${sect("language", srow(L("Application language"), sel("lang", LANGS, S.lang)))}
   ${sect("prayers", srow(L("Method"), sel("method", METHODS.map(m => [m.id, L(m.name)]), S.method)) + srow(L("Hanafi Asr"), tog("hanafi", S.hanafi)))}
   ${sect("Adjust times", adj, L("Add or subtract minutes to match your local mosque or official timetable."))}
   ${sect("notifications", srow(L("Adhan alerts"), tog("notif", S.notif)) + srow(L("Remind"), sel("remind", [[0, L("Off")], [5, "5 " + L("min")], [10, "10 " + L("min")], [15, "15 " + L("min")], [30, "30 " + L("min")]], S.remind)) + srow(L("Sunrise alert"), tog("sunriseAlert", S.sunriseAlert)),
-    (alertsDenied ? (ar() ? "التنبيهات مغلقة لهذا التطبيق في إعدادات الجهاز. " : "Notifications are off for this app in device settings. ") : "") + L("Tap the bell next to a prayer to mute just that prayer.") + (nativeOK() ? "" : (ar() ? " التنبيهات المجدولة تعمل في تطبيق الأندرويد." : " Scheduled alerts work in the Android app.")))}
+    (alertsDenied ? (ar() ? "التنبيهات مغلقة لهذا التطبيق في إعدادات الجهاز. " : F("Notifications are off for this app in device settings. ")) : "") + L("Tap the bell next to a prayer to mute just that prayer.") + (nativeOK() ? "" : (ar() ? " التنبيهات المجدولة تعمل في تطبيق الأندرويد." : " Scheduled alerts work in the Android app.")))}
   ${sect("compass", srow(L("Preview mode (turn dial by hand)"), tog("preview", S.preview)))}
   ${sect("units", srow(L("Temperature"), sel("temp", [["c", L("Celsius (°C)")], ["f", L("Fahrenheit (°F)")]], S.temp)))}
   <div class="shead">${L("About")}</div><div class="card sbox"><div class="srow"><div class="sl">Rafeeq رفيق 1.0</div></div></div>
-  <div class="sfoot">${ar() ? "كل الحسابات تتم على هذا الجهاز. تُرسل مدينتك التقريبية فقط عند البحث عن المساجد والطقس." : "Everything is calculated on this device. Only your approximate location is sent when you look up mosques or weather."}</div>`;
+  <div class="sfoot">${ar() ? "كل الحسابات تتم على هذا الجهاز. تُرسل مدينتك التقريبية فقط عند البحث عن المساجد والطقس." : F("Everything is calculated on this device. Only your approximate location is sent when you look up mosques or weather.")}</div>`;
 }
 
 /* ----- place picker sheet ----- */
@@ -523,7 +527,7 @@ function remoteSearch(q) {
   if (q.trim().length < 3 || !net.online) return;
   searchTimer = setTimeout(async () => {
     try {
-      const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=8&language=${ar() ? "ar" : "en"}&name=${encodeURIComponent(q.trim())}`);
+      const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?count=8&language=${ar() ? "ar" : S.lang === "ru" ? "ru" : "en"}&name=${encodeURIComponent(q.trim())}`);
       const j = await r.json();
       pickerRemote = (j.results || []).map(x => ({ name: x.name, country: [x.admin1, x.country].filter(Boolean).join(", "), lat: x.latitude, lon: x.longitude, tz: x.timezone, iso: (x.country_code || "--").toUpperCase() }));
       if (pickerOpen) { const keep = $("#cq")?.selectionStart; renderSheet(); const el = $("#cq"); if (el) { el.focus(); el.setSelectionRange(keep, keep); } }
@@ -566,7 +570,7 @@ const ACT = {
   count(el) {
     const id = el.dataset.id, n = +el.dataset.n, c = azkarCounts[id] || 0; if (c >= n) return;
     azkarCounts[id] = c + 1; vibr(); try { localStorage.setItem("rafeeq_counts", JSON.stringify(azkarCounts)); } catch (e) {}
-    const fin = c + 1 >= n, done = { ar: "تم", tr: "Tamam", fr: "Terminé", it: "Fatto", de: "Fertig", nl: "Klaar", es: "Hecho" }[S.lang] || "Done";
+    const fin = c + 1 >= n, done = { ar: "تم", tr: "Tamam", fr: "Terminé", it: "Fatto", de: "Fertig", nl: "Klaar", es: "Hecho" }[S.lang] || (X[S.lang] && X[S.lang].done) || "Done";
     $("#c-" + id).textContent = fin ? done : `${c + 1} / ${n}`; el.querySelector(".dbar i").style.width = Math.min(100, (c + 1) / n * 100) + "%"; el.classList.toggle("fin", fin);
   },
   pal(el) { S.palette = el.dataset.id; save(); render(); },
@@ -590,15 +594,15 @@ document.addEventListener("touchstart", e => { sx = e.touches[0].clientX; sy = e
 document.addEventListener("touchend", e => {
   if (sx == null || S.tab !== 3 || azkarCat == null) return;
   const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy; sx = null;
-  if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 1.5 && (ar() ? dx < 0 : dx > 0)) ACT.back();
+  if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 1.5 && (rtl() ? dx < 0 : dx > 0)) ACT.back();
 }, { passive: true });
 
 /* ---------- boot ---------- */
 function welcome() {
   const el = $("#sheet");
   el.innerHTML = `<div class="sheetbg"></div><div class="sheet welcome"><img src="icon.png" class="wlogo" alt=""><h1>${ar() ? "رفيق" : "Rafeeq"}</h1>
-   <p>${ar() ? "القبلة ومواقيت الصلاة والأذكار في أي مكان — يعمل دون إنترنت." : "Qibla, prayer times and Azkhar, anywhere. Works offline."}</p>
-   <ul><li>${ar() ? "بلا حساب ولا تتبع ولا إعلانات" : "No account, no tracking, no ads"}</li><li>${ar() ? "الحسابات تتم على هاتفك" : "Calculated on your phone"}</li></ul>
+   <p>${ar() ? "القبلة ومواقيت الصلاة والأذكار في أي مكان — يعمل دون إنترنت." : F("Qibla, prayer times and Azkhar, anywhere. Works offline.")}</p>
+   <ul><li>${ar() ? "بلا حساب ولا تتبع ولا إعلانات" : F("No account, no tracking, no ads")}</li><li>${ar() ? "الحسابات تتم على هاتفك" : F("Calculated on your phone")}</li></ul>
    <button class="btn big" id="wgps">${L("Allow location while using the app")}</button><button class="btn ghost big" id="wcity">${L("Choose a city instead")}</button></div>`;
   $("#wgps").onclick = () => { S.welcomed = true; save(); el.innerHTML = ""; useGPS(); };
   $("#wcity").onclick = () => { S.welcomed = true; save(); el.innerHTML = ""; pickerOpen = "p"; pickerQuery = ""; renderSheet(); };
