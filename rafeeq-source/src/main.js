@@ -484,7 +484,7 @@ const sect = (t, body, foot) => `<div class="shead">${L(t)}</div><div class="car
 function viewSettings() {
   const tsizes = [["1", L("Standard")], ["1.15", L("Large")], ["1.3", L("Larger")], ["1.5", L("Largest")]];
   const asizes = [["1", L("Standard")], ["1.2", L("Large")], ["1.4", L("Larger")], ["1.7", L("Largest")]];
-  const sw = PALETTES.map(p => `<button class="sw1 ${p.id === S.palette ? "sel" : ""}" data-act="pal" data-id="${p.id}"><i style="background:${H(p.c.accent[0])}"></i><span>${L(p.title)}</span></button>`).join("");
+  const sw = PALETTES.map(p => `<button class="sw1 ${p.id === S.palette ? "sel" : ""}" data-act="pal" data-id="${p.id}" aria-label="${p.title}"><i style="background:${H(p.c.accent[0])}"></i></button>`).join("");
   const adj = PRAYERS.map(k => `<div class="srow"><div class="sl">${pName(k)}</div><div class="step"><button data-act="adj" data-k="${k}" data-d="-1">−</button><b>${(offs()[k] || 0) > 0 ? "+" : ""}${offs()[k] || 0}</b><button data-act="adj" data-k="${k}" data-d="1">+</button></div></div>`).join("");
   return `${title("Settings", "الإعدادات")}
   ${sect("Location", `<button class="srow lbtn" data-act="gps"><div class="sl">${L("Current location")}<small>${S.gps ? esc(S.place.name) : esc(L("Use my location"))}</small></div>${S.gps ? "✓" : ""}</button>` +
