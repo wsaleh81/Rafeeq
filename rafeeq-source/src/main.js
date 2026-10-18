@@ -1,5 +1,4 @@
-import { Capacitor, registerPlugin } from "@capacitor/core";
-const Compass = registerPlugin("Compass");
+import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { Geolocation } from "@capacitor/geolocation";
 import DATA from "./data.json";
@@ -108,40 +107,18 @@ function headingFrom(e) {
   let h = Math.atan2(rA, rB); if (h < 0) h += 2 * Math.PI;
   return h * 180 / Math.PI;
 }
-let lastSensor = 0, sm = null;
-function smooth(h) {
-  const r = h * Math.PI / 180;
-  if (!sm) sm = { x: Math.cos(r), y: Math.sin(r) }; else { sm.x += 0.2 * (Math.cos(r) - sm.x); sm.y += 0.2 * (Math.sin(r) - sm.y); }
-  const d = Math.atan2(sm.y, sm.x) * 180 / Math.PI; return d < 0 ? d + 360 : d;
-}
-function nativeSetLoc() { if (Capacitor.isNativePlatform()) Compass.setLocation({ lat: S.place.lat, lon: S.place.lon, alt: 0 }).catch(() => {}); }
-let nativeCompass = false;
-async function startNative() {
-  if (nativeCompass) return true;
-  try {
-    nativeSetLoc();
-    const r = await Compass.start();
-    if (!r.available) return false;
-    if (!sensor.nl) sensor.nl = await Compass.addListener("heading", e => {
-      sensor.heading = e.heading; sensor.accuracy = e.accuracy;
-      if (S.tab === 0 && !S.preview) updateDial();
-    });
-    nativeCompass = true; sensor.listening = true; return true;
-  } catch (e) { return false; }
-}
-function stopNative() { if (nativeCompass) { Compass.stop().catch(() => {}); nativeCompass = false; sensor.listening = false; sensor.heading = null; } }
+let lastSensor = 0;
 function onOrient(e) {
   if (e.type === "deviceorientation" && sensor.absSeen && e.webkitCompassHeading == null) return;
   if (e.type === "deviceorientationabsolute") sensor.absSeen = true;
   if (e.type === "deviceorientation" && e.webkitCompassHeading == null && e.absolute !== true) return;
   const h = headingFrom(e); if (h == null || isNaN(h)) return;
-  sensor.heading = smooth(h); sensor.accuracy = e.webkitCompassAccuracy ?? null;
+  sensor.heading = h; sensor.accuracy = e.webkitCompassAccuracy ?? null;
   const now = performance.now(); if (now - lastSensor < 40) return; lastSensor = now;
   if (S.tab === 0 && !S.preview) updateDial();
 }
 async function startCompass() {
   if (sensor.listening) return;
-  if (Capacitor.isNativePlatform()) { if (await startNative()) return; sensor.available = false; if (S.tab === 0) render(); return; }
   try {
     if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
       const r = await DeviceOrientationEvent.requestPermission();
@@ -162,7 +139,7 @@ let weather = null;
 async function loadWeather() {
   try {
     const p = S.place;
-    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.lat.toFixed(2)}&longitude=${p.lon.toFixed(2)}&current=temperature_2m,weather_code,is_day&timezone=auto`);
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&current=temperature_2m,weather_code,is_day&timezone=auto`);
     const j = await r.json(); weather = { t: j.current.temperature_2m, code: j.current.weather_code, day: j.current.is_day === 1 };
     const el = $("#wchip"); if (el) el.outerHTML = weatherChip();
   } catch (e) {}
@@ -195,14 +172,14 @@ async function useGPS(silent) {
     let name = near.d < 40 ? near.c.name : "My location", country = near.c.country, iso = near.c.iso;
     if (net.online) {
       try {
-        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=10&accept-language=${ar() ? "ar" : "en"}&lat=${lat.toFixed(2)}&lon=${lon.toFixed(2)}`);
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=10&accept-language=${ar() ? "ar" : "en"}&lat=${lat}&lon=${lon}`);
         const j = await r.json(); const a = j.address || {};
         name = a.city || a.town || a.village || a.suburb || a.county || a.state || name; country = a.country || country; iso = (a.country_code || iso || "--").toUpperCase();
       } catch (e) {}
     } else if (near.d >= 40) { iso = near.c.iso; }
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || near.c.tz;
     S.place = { name, country, lat, lon, tz, iso, gps: true }; S.gps = true; save();
-    nativeSetLoc(); gpsState = "ok"; weather = null; loadWeather(); scheduleAlerts(); render();
+    gpsState = "ok"; weather = null; loadWeather(); scheduleAlerts(); render(); if (S.tab === 2) loadMosques();
   } catch (e) { gpsState = "denied"; render(); }
 }
 let gpsState = "idle", gpsAcc = null;
@@ -350,7 +327,6 @@ function viewQibla() {
     else if (needsPerm() && !sensor.listening) note = `<button class="btn" data-act="compass">${ar() ? "تشغيل البوصلة" : "Start the compass"}</button>`;
     else if (!sensor.available) note = L("This device has no compass. Turn on preview mode in Settings.");
     else if (sensor.heading == null) note = L("Starting the compass…");
-    else if (nativeCompass) note = (sensor.accuracy != null && sensor.accuracy < 2) ? (ar() ? "البوصلة تحتاج إلى معايرة. حرّك هاتفك على شكل رقم ٨." : "Compass needs calibration. Move your phone in a figure of eight.") : "";
     else note = ar() ? "يعرض الشمال المغناطيسي. حرّك هاتفك على شكل ٨ للمعايرة." : "Showing magnetic north. Move your phone in a figure of eight to calibrate.";
   }
   const acc = gpsAcc != null ? `±${Math.round(gpsAcc)} ${L("m")}` : (ar() ? "لا يوجد تحديد" : "no fix yet");
@@ -427,8 +403,8 @@ function tickPrayer() {
 /* ----- Mosques tab ----- */
 function distTxt(m) { return m < 1000 ? `${Math.round(m)} ${L("m")}` : `${(m / 1000).toFixed(1)} ${L("km")}`; }
 function viewMosques() {
-  const c = mosqueAround || S.place, ms = mosqueState;
-  const lab = mosqueAround ? (ar() ? `بالقرب من ${c.name}` : `Near ${c.name}`) : `${L("Near me")} · ${c.name}`;
+  const c = S.place, ms = mosqueState;
+  const lab = S.gps ? `${L("Near me")} · ${c.name}` : (ar() ? `بالقرب من ${c.name}` : `Near ${c.name}`);
   let body = "";
   if (!net.online && !ms.list.length) body = notice("📴", "You are offline", "Finding mosques needs internet. Prayer times and Qibla keep working without it.");
   else if (ms.loading && !ms.list.length) body = `<div class="center muted pad">${L("Looking for mosques…")}</div>`;
@@ -450,13 +426,13 @@ function mCard(m, big) {
    <div class="mbtns"><a class="btn sm" href="${g}" target="_blank" rel="noopener">${L("Open in Google Maps")}</a><a class="btn sm ghost" href="${w}" target="_blank" rel="noopener">${L("Open in Waze")}</a></div>`;
 }
 async function loadMosques(force) {
-  const c = mosqueAround || S.place, key = c.lat.toFixed(2) + "," + c.lon.toFixed(2);
+  const c = S.place, key = c.lat.toFixed(2) + "," + c.lon.toFixed(2);
   if (!force && mosqueState.key === key) return;
   mosqueState = { loading: true, list: mosqueState.key === key ? mosqueState.list : [], failed: false, key };
   try { const cached = JSON.parse(localStorage.getItem("rafeeq_m_" + key) || "null"); if (cached && !mosqueState.list.length) mosqueState.list = cached; } catch (e) {}
   if (S.tab === 2) render();
   if (!net.online) { mosqueState.loading = false; if (S.tab === 2) render(); return; }
-  const ql = `[out:json][timeout:10];(node["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${c.lat.toFixed(2)},${c.lon.toFixed(2)});way["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${c.lat.toFixed(2)},${c.lon.toFixed(2)}););out center tags 60;`;
+  const ql = `[out:json][timeout:10];(node["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${c.lat},${c.lon});way["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${c.lat},${c.lon}););out center tags 60;`;
   let j = null;
   for (const host of ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]) {
     try { const r = await fetch(host + "?data=" + encodeURIComponent(ql)); j = await r.json(); if (j && j.elements) break; } catch (e) {}
@@ -507,6 +483,10 @@ function viewSettings() {
   const sw = PALETTES.map(p => `<button class="sw1 ${p.id === S.palette ? "sel" : ""}" data-act="pal" data-id="${p.id}"><i style="background:${H(p.c.accent[0])}"></i><span>${L(p.title)}</span></button>`).join("");
   const adj = PRAYERS.map(k => `<div class="srow"><div class="sl">${pName(k)}</div><div class="step"><button data-act="adj" data-k="${k}" data-d="-1">−</button><b>${(offs()[k] || 0) > 0 ? "+" : ""}${offs()[k] || 0}</b><button data-act="adj" data-k="${k}" data-d="1">+</button></div></div>`).join("");
   return `${title("Settings", "الإعدادات")}
+  ${sect("Location", `<button class="srow lbtn" data-act="gps"><div class="sl">${L("Current location")}<small>${S.gps ? esc(S.place.name) : esc(L("Use my location"))}</small></div>${S.gps ? "✓" : ""}</button>` +
+    `<button class="srow lbtn" data-act="picker"><div class="sl">${L("Choose a city")}<small>${S.gps ? "" : esc(S.place.name)}</small></div>${S.gps ? "›" : "✓ ›"}</button>` +
+    srow(L("Local time there"), `<b class="muted">${tf(S.place.tz).format(new Date())}</b>`, esc(S.place.tz)),
+    ar() ? "الصلاة والقبلة والمساجد والطقس كلها تعتمد على هذا الموقع." : "Prayer times, Qibla, mosques and weather all use this location.")}
   ${sect("theme", `<div class="swatches">${sw}</div>` + srow(L("Appearance"), sel("appearance", [["auto", L("Auto")], ["light", L("Light")], ["dark", L("Dark")]], S.appearance)))}
   ${sect("accessibility", srow(L("Text size"), sel("textSize", tsizes, S.textSize)) + srow(L("Azkhar text size"), sel("azkarSize", asizes, S.azkarSize)) + srow(L("Bold text"), tog("bold", S.bold)))}
   ${sect("language", srow(L("Application language"), sel("lang", LANGS, S.lang)))}
@@ -517,7 +497,7 @@ function viewSettings() {
   ${sect("compass", srow(L("Preview mode (turn dial by hand)"), tog("preview", S.preview)))}
   ${sect("units", srow(L("Temperature"), sel("temp", [["c", L("Celsius (°C)")], ["f", L("Fahrenheit (°F)")]], S.temp)))}
   <div class="shead">${L("About")}</div><div class="card sbox"><div class="srow"><div class="sl">Rafeeq رفيق 1.0</div></div></div>
-  <div class="sfoot">${ar() ? "القبلة ومواقيت الصلاة تُحسب على هذا الجهاز. يُرسل موقعك التقريبي فقط عند البحث عن المساجد أو الطقس أو المدن." : "Qibla and prayer times are calculated on this device. Your approximate location is sent only when you look up mosques, weather or cities."}</div>`;
+  <div class="sfoot">${ar() ? "كل الحسابات تتم على هذا الجهاز. تُرسل مدينتك التقريبية فقط عند البحث عن المساجد والطقس." : "Everything is calculated on this device. Only your approximate location is sent when you look up mosques or weather."}</div>`;
 }
 
 /* ----- place picker sheet ----- */
@@ -552,8 +532,7 @@ function remoteSearch(q) {
 }
 function renderSheet() { const el = $("#sheet"); el.innerHTML = pickerOpen ? viewPicker() : ""; }
 function choose(c) {
-  if (pickerOpen === "m") { mosqueAround = c; mosqueState.key = ""; pickerOpen = null; renderSheet(); loadMosques(true); return; }
-  S.place = { ...c }; S.gps = false; save(); nativeSetLoc(); weather = null; pickerOpen = null; renderSheet(); loadWeather(); scheduleAlerts(); render();
+  S.place = { ...c }; S.gps = false; save(); weather = null; pickerOpen = null; renderSheet(); loadWeather(); scheduleAlerts(); render(); if (S.tab === 2) loadMosques();
 }
 
 /* ---------- render & events ---------- */
@@ -563,7 +542,7 @@ function render() {
   const v = $("#view"), st = v.scrollTop;
   v.innerHTML = [viewQibla, viewPrayer, viewMosques, viewAzkhar, viewSettings][S.tab]();
   $("#tabs").innerHTML = TABS.map((t, i) => `<button class="tab ${i === S.tab ? "sel" : ""}" data-act="tab" data-i="${i}">${I[t[1]]}<span>${L(t[0])}</span></button>`).join("");
-  if (S.tab === 0) afterQibla(); else { dialEls = null; stopNative(); }
+  if (S.tab === 0) afterQibla(); else dialEls = null;
   if (S.tab === 1) tickPrayer();
   if (S.tab === 2) loadMosques();
   v.scrollTop = st;
@@ -572,7 +551,7 @@ function vibr() { try { navigator.vibrate && navigator.vibrate(12); } catch (e) 
 const ACT = {
   tab(el) { S.tab = +el.dataset.i; azkarCat = null; save(); render(); $("#view").scrollTop = 0; },
   picker() { pickerOpen = "p"; pickerQuery = ""; pickerRemote = []; renderSheet(); },
-  mpicker() { pickerOpen = "m"; pickerQuery = ""; pickerRemote = []; renderSheet(); },
+  mpicker() { pickerOpen = "p"; pickerQuery = ""; pickerRemote = []; renderSheet(); },
   closeSheet() { pickerOpen = null; renderSheet(); },
   pick(el) { choose(el.dataset.r != null ? pickerRemote[+el.dataset.r] : CITIES[+el.dataset.i]); },
   pickme() { mosqueAround = null; mosqueState.key = ""; pickerOpen = null; renderSheet(); loadMosques(true); },
@@ -619,7 +598,7 @@ function welcome() {
   const el = $("#sheet");
   el.innerHTML = `<div class="sheetbg"></div><div class="sheet welcome"><img src="icon.png" class="wlogo" alt=""><h1>${ar() ? "رفيق" : "Rafeeq"}</h1>
    <p>${ar() ? "القبلة ومواقيت الصلاة والأذكار في أي مكان — يعمل دون إنترنت." : "Qibla, prayer times and Azkhar, anywhere. Works offline."}</p>
-   <ul><li>${ar() ? "بلا حساب ولا تتبع ولا إعلانات" : "No account, no tracking, no ads"}</li><li>${ar() ? "القبلة ومواقيت الصلاة تُحسب على هاتفك" : "Qibla and prayer times are calculated on your phone"}</li></ul>
+   <ul><li>${ar() ? "بلا حساب ولا تتبع ولا إعلانات" : "No account, no tracking, no ads"}</li><li>${ar() ? "الحسابات تتم على هاتفك" : "Calculated on your phone"}</li></ul>
    <button class="btn big" id="wgps">${L("Allow location while using the app")}</button><button class="btn ghost big" id="wcity">${L("Choose a city instead")}</button></div>`;
   $("#wgps").onclick = () => { S.welcomed = true; save(); el.innerHTML = ""; useGPS(); };
   $("#wcity").onclick = () => { S.welcomed = true; save(); el.innerHTML = ""; pickerOpen = "p"; pickerQuery = ""; renderSheet(); };
