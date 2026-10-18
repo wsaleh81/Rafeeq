@@ -162,7 +162,7 @@ let weather = null;
 async function loadWeather() {
   try {
     const p = S.place;
-    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&current=temperature_2m,weather_code,is_day&timezone=auto`);
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.lat.toFixed(2)}&longitude=${p.lon.toFixed(2)}&current=temperature_2m,weather_code,is_day&timezone=auto`);
     const j = await r.json(); weather = { t: j.current.temperature_2m, code: j.current.weather_code, day: j.current.is_day === 1 };
     const el = $("#wchip"); if (el) el.outerHTML = weatherChip();
   } catch (e) {}
@@ -195,7 +195,7 @@ async function useGPS(silent) {
     let name = near.d < 40 ? near.c.name : "My location", country = near.c.country, iso = near.c.iso;
     if (net.online) {
       try {
-        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=10&accept-language=${ar() ? "ar" : "en"}&lat=${lat}&lon=${lon}`);
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=10&accept-language=${ar() ? "ar" : "en"}&lat=${lat.toFixed(2)}&lon=${lon.toFixed(2)}`);
         const j = await r.json(); const a = j.address || {};
         name = a.city || a.town || a.village || a.suburb || a.county || a.state || name; country = a.country || country; iso = (a.country_code || iso || "--").toUpperCase();
       } catch (e) {}
@@ -456,7 +456,7 @@ async function loadMosques(force) {
   try { const cached = JSON.parse(localStorage.getItem("rafeeq_m_" + key) || "null"); if (cached && !mosqueState.list.length) mosqueState.list = cached; } catch (e) {}
   if (S.tab === 2) render();
   if (!net.online) { mosqueState.loading = false; if (S.tab === 2) render(); return; }
-  const ql = `[out:json][timeout:10];(node["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${c.lat},${c.lon});way["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${c.lat},${c.lon}););out center tags 60;`;
+  const ql = `[out:json][timeout:10];(node["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${c.lat.toFixed(2)},${c.lon.toFixed(2)});way["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${c.lat.toFixed(2)},${c.lon.toFixed(2)}););out center tags 60;`;
   let j = null;
   for (const host of ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]) {
     try { const r = await fetch(host + "?data=" + encodeURIComponent(ql)); j = await r.json(); if (j && j.elements) break; } catch (e) {}
@@ -517,7 +517,7 @@ function viewSettings() {
   ${sect("compass", srow(L("Preview mode (turn dial by hand)"), tog("preview", S.preview)))}
   ${sect("units", srow(L("Temperature"), sel("temp", [["c", L("Celsius (°C)")], ["f", L("Fahrenheit (°F)")]], S.temp)))}
   <div class="shead">${L("About")}</div><div class="card sbox"><div class="srow"><div class="sl">Rafeeq رفيق 1.0</div></div></div>
-  <div class="sfoot">${ar() ? "كل الحسابات تتم على هذا الجهاز. تُرسل مدينتك التقريبية فقط عند البحث عن المساجد والطقس." : "Everything is calculated on this device. Only your approximate location is sent when you look up mosques or weather."}</div>`;
+  <div class="sfoot">${ar() ? "القبلة ومواقيت الصلاة تُحسب على هذا الجهاز. يُرسل موقعك التقريبي فقط عند البحث عن المساجد أو الطقس أو المدن." : "Qibla and prayer times are calculated on this device. Your approximate location is sent only when you look up mosques, weather or cities."}</div>`;
 }
 
 /* ----- place picker sheet ----- */
@@ -619,7 +619,7 @@ function welcome() {
   const el = $("#sheet");
   el.innerHTML = `<div class="sheetbg"></div><div class="sheet welcome"><img src="icon.png" class="wlogo" alt=""><h1>${ar() ? "رفيق" : "Rafeeq"}</h1>
    <p>${ar() ? "القبلة ومواقيت الصلاة والأذكار في أي مكان — يعمل دون إنترنت." : "Qibla, prayer times and Azkhar, anywhere. Works offline."}</p>
-   <ul><li>${ar() ? "بلا حساب ولا تتبع ولا إعلانات" : "No account, no tracking, no ads"}</li><li>${ar() ? "الحسابات تتم على هاتفك" : "Calculated on your phone"}</li></ul>
+   <ul><li>${ar() ? "بلا حساب ولا تتبع ولا إعلانات" : "No account, no tracking, no ads"}</li><li>${ar() ? "القبلة ومواقيت الصلاة تُحسب على هاتفك" : "Qibla and prayer times are calculated on your phone"}</li></ul>
    <button class="btn big" id="wgps">${L("Allow location while using the app")}</button><button class="btn ghost big" id="wcity">${L("Choose a city instead")}</button></div>`;
   $("#wgps").onclick = () => { S.welcomed = true; save(); el.innerHTML = ""; useGPS(); };
   $("#wcity").onclick = () => { S.welcomed = true; save(); el.innerHTML = ""; pickerOpen = "p"; pickerQuery = ""; renderSheet(); };
