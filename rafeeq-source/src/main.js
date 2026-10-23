@@ -82,6 +82,7 @@ const I = {
   check: '<svg viewBox="0 0 24 24"><path d="M5 12.500l4.500 4.500L19 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   rot: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.500-5.800M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.600" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   rotL: '<svg viewBox="0 0 24 24" style="transform:scaleX(-1)"><path d="M20 12a8 8 0 1 1-2.500-5.800M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.600" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  dir: '<svg viewBox="0 0 24 24"><path d="M3 11l18-8-8 18-2-8z" fill="currentColor"/></svg>',
   palette: '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.500 0 2-1 1.500-2.200-.5-1.300.2-2.300 1.500-2.300H17a4 4 0 0 0 4-4C21 6.500 17 3 12 3z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="7.500" cy="11" r="1.300" fill="currentColor"/><circle cx="10.500" cy="7.500" r="1.300" fill="currentColor"/><circle cx="15" cy="8" r="1.300" fill="currentColor"/></svg>',
 };
 
@@ -383,10 +384,17 @@ function viewMosques() {
 }
 const notice = (ic, t, s) => `<div class="notice"><div class="ni">${ic}</div><b>${L(t)}</b><p>${L(s)}</p></div>`;
 function mCard(m, big) {
-  const g = `https://www.google.com/maps/search/?api=1&query=${m.lat},${m.lon}`, w = `https://waze.com/ul?ll=${m.lat},${m.lon}&navigate=yes`;
   return `<div class="mname">${esc(m.name)}</div>${m.address ? `<div class="muted sm">${esc(m.address)}</div>` : ""}
    <div class="mmeta"><span>${distTxt(m.d)}</span><span>${L("walk")} ${Math.max(1, Math.round(m.d / 80))} ${L("min")}</span></div>
-   <div class="mbtns"><a class="btn sm" href="${g}" target="_blank" rel="noopener">${L("Open in Google Maps")}</a><a class="btn sm ghost" href="${w}" target="_blank" rel="noopener">${L("Open in Waze")}</a></div>`;
+   <button class="dirbtn" data-act="directions" data-lat="${m.lat}" data-lon="${m.lon}" data-name="${esc(m.name)}">${I.dir}<span>${L("Directions")}</span></button>`;
+}
+let dirTarget = null;
+function dirSheet() {
+  const d = dirTarget, g = `https://www.google.com/maps/dir/?api=1&destination=${d.lat},${d.lon}&travelmode=walking`, w = `https://waze.com/ul?ll=${d.lat},${d.lon}&navigate=yes`;
+  return `<div class="sheetbg" data-act="closeSheet"></div><div class="sheet dirsheet"><div class="grab"></div><h3>${esc(d.name)}</h3>
+    <a class="dopt" href="${g}" target="_blank" rel="noopener"><span>🗺️</span><span>${L("Open in Google Maps")}</span></a>
+    <a class="dopt" href="${w}" target="_blank" rel="noopener"><span>🚗</span><span>${L("Open in Waze")}</span></a>
+    <button class="btn ghost big" data-act="closeSheet">${L("Cancel")}</button></div>`;
 }
 async function loadMosques(force) {
   const c = S.place, key = c.lat.toFixed(2) + "," + c.lon.toFixed(2);
@@ -493,7 +501,7 @@ function remoteSearch(q) {
     } catch (e) {}
   }, 450);
 }
-function renderSheet() { const el = $("#sheet"); el.innerHTML = pickerOpen ? viewPicker() : ""; }
+function renderSheet() { const el = $("#sheet"); el.innerHTML = dirTarget ? dirSheet() : pickerOpen ? viewPicker() : ""; }
 function choose(c) {
   S.place = { ...c }; S.gps = false; save(); weather = null; pickerOpen = null; renderSheet(); loadWeather(); scheduleAlerts(); render(); if (S.tab === 1) loadMosques();
 }
@@ -516,7 +524,8 @@ const ACT = {
   tab(el) { S.tab = +el.dataset.i; azkarCat = null; save(); render(); $("#view").scrollTop = 0; },
   picker() { pickerOpen = "p"; pickerQuery = ""; pickerRemote = []; renderSheet(); },
   mpicker() { pickerOpen = "p"; pickerQuery = ""; pickerRemote = []; renderSheet(); },
-  closeSheet() { pickerOpen = null; renderSheet(); },
+  closeSheet() { pickerOpen = null; dirTarget = null; renderSheet(); },
+  directions(el) { dirTarget = { lat: el.dataset.lat, lon: el.dataset.lon, name: el.dataset.name }; renderSheet(); },
   pick(el) { choose(el.dataset.r != null ? pickerRemote[+el.dataset.r] : CITIES[+el.dataset.i]); },
   pickme() { mosqueAround = null; mosqueState.key = ""; pickerOpen = null; renderSheet(); loadMosques(true); },
   gps() { useGPS().then(() => { if (gpsState === "ok") { pickerOpen = null; renderSheet(); } else renderSheet(); }); renderSheet(); },
