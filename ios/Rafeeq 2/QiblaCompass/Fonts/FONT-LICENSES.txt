@@ -1,0 +1,25 @@
+Fonts bundled with Rihal
+========================
+All fonts below are from Google Fonts and are licensed under the SIL Open Font License 1.1 (https://openfontlicense.org),
+which allows use and redistribution inside apps. Copyright belongs to each font's authors, as listed on fonts.google.com.
+
+- Cairo
+- Tajawal
+- Almarai
+- IBM Plex Sans Arabic
+- Readex Pro
+- Mada
+- Changa
+- El Messiri
+- Noto Kufi Arabic
+- Reem Kufi
+- Kufam
+- Reem Kufi Fun
+- Alexandria
+- Marhey
+- Baloo Bhaijaan 2
+- Blaka
+- Lalezar
+- Rakkas
+- Noto Naskh Arabic
+- Amiri
