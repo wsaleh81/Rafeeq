@@ -459,7 +459,7 @@ function viewSettings() {
     (alertsDenied ? (ar() ? "التنبيهات مغلقة لهذا التطبيق في إعدادات الجهاز. " : F("Notifications are off for this app in device settings. ")) : "") + L("Tap the bell next to a prayer to mute just that prayer.") + (nativeOK() ? "" : (ar() ? " التنبيهات المجدولة تعمل في تطبيق الأندرويد." : " Scheduled alerts work in the Android app.")))}
   ${sect("compass", srow(L("Preview mode (turn dial by hand)"), tog("preview", S.preview)))}
   ${sect("units", srow(L("Temperature"), sel("temp", [["c", L("Celsius (°C)")], ["f", L("Fahrenheit (°F)")]], S.temp)))}
-  <div class="shead">${L("About")}</div><div class="card sbox"><div class="srow"><div class="sl">Rafeeq رفيق 1.0</div></div></div>
+  <div class="shead">${L("About")}</div><div class="card sbox"><div class="srow"><div class="sl">Rihal رحال 1.0</div></div></div>
   <div class="sfoot">${ar() ? "كل الحسابات تتم على هذا الجهاز. تُرسل مدينتك التقريبية فقط عند البحث عن المساجد والطقس." : F("Everything is calculated on this device. Only your approximate location is sent when you look up mosques or weather.")}</div>`;
 }
 
@@ -565,7 +565,7 @@ document.addEventListener("touchend", e => {
 /* ---------- boot ---------- */
 function welcome() {
   const el = $("#sheet");
-  el.innerHTML = `<div class="sheetbg"></div><div class="sheet welcome"><img src="icon.png" class="wlogo" alt=""><h1>${ar() ? "رفيق" : "Rafeeq"}</h1>
+  el.innerHTML = `<div class="sheetbg"></div><div class="sheet welcome"><img src="icon.png" class="wlogo" alt=""><h1>${ar() ? "رحال" : "Rihal"}</h1>
    <p>${ar() ? "القبلة ومواقيت الصلاة والأذكار في أي مكان — يعمل دون إنترنت." : F("Qibla, prayer times and Azkhar, anywhere. Works offline.")}</p>
    <ul><li>${ar() ? "بلا حساب ولا تتبع ولا إعلانات" : F("No account, no tracking, no ads")}</li><li>${ar() ? "الحسابات تتم على هاتفك" : F("Calculated on your phone")}</li></ul>
    <button class="btn big" id="wgps">${L("Allow location while using the app")}</button><button class="btn ghost big" id="wcity">${L("Choose a city instead")}</button></div>`;
