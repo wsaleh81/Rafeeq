@@ -4,30 +4,33 @@ import { LocalNotifications } from "@capacitor/local-notifications";
 import { Geolocation } from "@capacitor/geolocation";
 import DATA from "./data.json";
 import AR from "./ar.json";
+import { classicSVG, ringsSVG, updateDial as dialUpdate, sunLayerSVG } from "./dials.js";
+import { mushafHTML, mushafAfter, mushafIndexToggle, mushafSetPage, mushafBy, SURAS } from "./mushaf.js";
 import { Qibla, haversine, diff, norm, cardinal, sunInfo, METHODS, PRAYERS, prayerEvents, dayFor } from "./core.js";
 
 /* ---------- palettes (same as the iOS app) ---------- */
 const H = n => "#" + n.toString(16).padStart(6, "0");
 const P = (id, title, bg, card, ink, muted, line, tile, accent, deep, tint, rowNow, on) => ({ id, title, c: { bg, card, ink, muted, line, tile, accent, deep, tint, rowNow, on } });
 const PALETTES = [
-  P("ocean", "Ocean", [0xEDF2F8, 0x0B0F17], [0xFFFFFF, 0x2A3040], [0x0E1726, 0xEEF2F8], [0x5B677A, 0x9AA3B5], [0xDCE5F0, 0x3E4558], [0xE3ECF6, 0x3A4156], [0x2F9BE8, 0x55BBFA], [0x1B7FCC, 0x55BBFA], [0xDCEBFA, 0x1F3550], [0xDCEBFA, 0x34405A], [0xFFFFFF, 0x0B0F17]),
-  P("emerald", "Emerald", [0xEAF5EF, 0x08130F], [0xFFFFFF, 0x15271F], [0x0B2A1F, 0xECF8F2], [0x527466, 0x8FB0A2], [0xD2E5DB, 0x27443A], [0xDDEEE5, 0x1F382E], [0x22B07D, 0x34D399], [0x0A7552, 0x4ADFA8], [0xD8F3E6, 0x12362B], [0xD8F3E6, 0x16382B], [0xFFFFFF, 0x06150F]),
-  P("royal", "Royal", [0xF2EEFA, 0x0F0B1A], [0xFFFFFF, 0x241C38], [0x1B1230, 0xF3EEFC], [0x6A5C86, 0xA99BC4], [0xE1D8F2, 0x3B2F58], [0xE9E1F7, 0x33284D], [0x8A5CE0, 0xB794F6], [0x6D3FC4, 0xC4A8FA], [0xE8DEFA, 0x2E2248], [0xE8DEFA, 0x33264F], [0xFFFFFF, 0x150E26]),
-  P("sunset", "Sunset", [0xFDF1EA, 0x150C08], [0xFFFFFF, 0x2B1B14], [0x2B1308, 0xFDF1EA], [0x8A6552, 0xBFA08F], [0xF3DACB, 0x4A2F22], [0xF9E5D8, 0x3B261B], [0xF26B21, 0xFF8A4C], [0xD04E0A, 0xFF9F69], [0xFCDDC8, 0x3A2316], [0xFCDDC8, 0x40271A], [0xFFFFFF, 0x1E0C03]),
-  P("rose", "Rose", [0xFCEFF2, 0x170B10], [0xFFFFFF, 0x2C1820], [0x2B0F18, 0xFDEFF3], [0x8A5A68, 0xC09AA8], [0xF2D6DD, 0x4A2A37], [0xF8E3E8, 0x3B2029], [0xEE5C85, 0xFF7A9C], [0xC8325A, 0xFF93AF], [0xFBDDE6, 0x3A1E29], [0xFBDDE6, 0x40202C], [0xFFFFFF, 0x1E0810]),
-  P("graphite", "Graphite", [0xEFF0F2, 0x0E0F11], [0xFFFFFF, 0x232528], [0x15171A, 0xF2F3F5], [0x5F656E, 0x9EA3AB], [0xDDE0E4, 0x383B40], [0xE6E8EB, 0x2E3136], [0x4A5058, 0xD6DAE0], [0x2B3036, 0xE4E7EB], [0xE1E4E8, 0x2A2D32], [0xE1E4E8, 0x30343A], [0xFFFFFF, 0x101113]),
+  P("ocean", "Ocean", [0xEDF2F8, 0x0A1430], [0xFFFFFF, 0x12224D], [0x0E1726, 0xF5F0E4], [0x5B677A, 0xA9B2CC], [0xDCE5F0, 0x2B4080], [0xE3ECF6, 0x1C3170], [0x2F9BE8, 0xE4BB68], [0x1B7FCC, 0xF1D9A2], [0xDCEBFA, 0x1B2E66], [0xDCEBFA, 0x1F3470], [0xFFFFFF, 0x0A1430]),
+  P("emerald", "Emerald", [0xEAF5EF, 0x07140E], [0xFFFFFF, 0x0E3226], [0x0B2A1F, 0xECF8F2], [0x527466, 0xA3C4B6], [0xD2E5DB, 0x1F5A44], [0xDDEEE5, 0x154633], [0x22B07D, 0x34D399], [0x0A7552, 0x8DEBC6], [0xD8F3E6, 0x154633], [0xD8F3E6, 0x18503B], [0xFFFFFF, 0x06150F]),
+  P("royal", "Royal", [0xF2EEFA, 0x130C26], [0xFFFFFF, 0x2A1B50], [0x1B1230, 0xF3EEFC], [0x6A5C86, 0xB9ABD3], [0xE1D8F2, 0x4A3590], [0xE9E1F7, 0x38256A], [0x8A5CE0, 0xB794F6], [0x6D3FC4, 0xD3BBFA], [0xE8DEFA, 0x38256A], [0xE8DEFA, 0x42307A], [0xFFFFFF, 0x150E26]),
+  P("sunset", "Sunset", [0xFDF1EA, 0x1E0E07], [0xFFFFFF, 0x4B2010], [0x2B1308, 0xFDF1EA], [0x8A6552, 0xD2B3A0], [0xF3DACB, 0x7A3E1C], [0xF9E5D8, 0x5E2C14], [0xF26B21, 0xFF8A4C], [0xD04E0A, 0xFFC09A], [0xFCDDC8, 0x5E2C14], [0xFCDDC8, 0x6B3318], [0xFFFFFF, 0x1E0C03]),
+  P("rose", "Rose", [0xFCEFF2, 0x1F0A11], [0xFFFFFF, 0x4D1828], [0x2B0F18, 0xFDEFF3], [0x8A5A68, 0xD3AEBB], [0xF2D6DD, 0x8A3552], [0xF8E3E8, 0x66243A], [0xEE5C85, 0xFF7A9C], [0xC8325A, 0xFFB5C9], [0xFBDDE6, 0x66243A], [0xFBDDE6, 0x722A42], [0xFFFFFF, 0x1E0810]),
+  P("graphite", "Graphite", [0xEFF0F2, 0x111214], [0xFFFFFF, 0x24272C], [0x15171A, 0xF2F3F5], [0x5F656E, 0xA9AEB6], [0xDDE0E4, 0x42474E], [0xE6E8EB, 0x30343A], [0x4A5058, 0xD6DAE0], [0x2B3036, 0xE4E7EB], [0xE1E4E8, 0x30343A], [0xE1E4E8, 0x383D44], [0xFFFFFF, 0x101113]),
 ];
 
 /* ---------- settings store ---------- */
 const DEF = {
   lang: "ar", palette: "ocean", appearance: "auto", textSize: "1", bold: false, azkarSize: "1",
   method: "kuwait", hanafi: false, off: {}, notif: false, remind: 0, sunriseAlert: false, muted: {},
-  temp: "c", preview: false, tab: 1, welcomed: false,
+  temp: "c", preview: false, tab: 0, welcomed: false, compass: "classic", alarm: {}, fontID: "system", v: 2,
   place: { name: "Kuwait City", country: "Kuwait", lat: 29.3759, lon: 47.9774, tz: "Asia/Kuwait", iso: "KW" },
   gps: false,
 };
 let S = { ...DEF };
 try { Object.assign(S, JSON.parse(localStorage.getItem("rafeeq") || "{}")); } catch (e) {}
+if (S.v !== 2) { S.tab = 0; S.v = 2; S.alarm = S.alarm || {}; }
 const save = () => { try { localStorage.setItem("rafeeq", JSON.stringify(S)); } catch (e) {} };
 const ar = () => S.lang === "ar";
 const F = (t, ...a) => { const x = (U[S.lang] && U[S.lang].tpl[t]) || t; return x.replace(/\{(\d)\}/g, (_, i) => a[i]); };
@@ -83,11 +86,24 @@ const I = {
 };
 
 /* ---------- theme ---------- */
+let T = {};
+const FONTS = [["system", "System default"], ["cairo", "Cairo"], ["tajawal", "Tajawal"], ["almarai", "Almarai"], ["ibm-plex-sans-arabic", "IBM Plex Sans Arabic"], ["readex-pro", "Readex Pro"], ["mada", "Mada"], ["changa", "Changa"], ["el-messiri", "El Messiri"], ["noto-kufi-arabic", "Noto Kufi Arabic"], ["reem-kufi", "Reem Kufi"], ["kufam", "Kufam"], ["reem-kufi-fun", "Reem Kufi Fun"], ["alexandria", "Alexandria"], ["marhey", "Marhey"], ["baloo-bhaijaan-2", "Baloo Bhaijaan 2"], ["blaka", "Blaka"], ["lalezar", "Lalezar"], ["rakkas", "Rakkas"], ["noto-naskh-arabic", "Noto Naskh Arabic"], ["amiri", "Amiri"]];
+const ONEWEIGHT = ["blaka", "lalezar", "rakkas"];
+function applyFont() {
+  let st = document.getElementById("appfont"); if (!st) { st = document.createElement("style"); st.id = "appfont"; document.head.appendChild(st); }
+  const id = S.fontID;
+  if (!id || id === "system") { st.textContent = ""; return; }
+  const reg = id.split("-").map(w => w[0].toUpperCase() + w.slice(1)).join("");
+  st.textContent = `@font-face{font-family:AppFont;font-weight:400;src:url(fonts/${id}-regular.woff2)}` + (ONEWEIGHT.includes(id) ? "" : `@font-face{font-family:AppFont;font-weight:700 900;src:url(fonts/${id}-bold.woff2)}`) + `:root{--ff:AppFont}`;
+}
 function applyTheme() {
   const pal = PALETTES.find(p => p.id === S.palette) || PALETTES[0];
   const dark = S.appearance === "dark" || (S.appearance === "auto" && matchMedia("(prefers-color-scheme: dark)").matches);
   const r = document.documentElement.style, i = dark ? 1 : 0;
   for (const [k, v] of Object.entries(pal.c)) r.setProperty("--" + k, H(v[i]));
+  const g = k => H(pal.c[k][i]);
+  T = { accent: g("accent"), deep: g("deep"), tint: g("tint"), card: g("card"), tile: g("tile"), line: g("line"), ink: g("ink"), muted: g("muted"), night: H(pal.c.bg[1]), ok: "#3DD68C", sun: "#FFB627" };
+  applyFont();
   r.setProperty("--zg", "#35D07F"); r.setProperty("--zy", "#FFC83D"); r.setProperty("--zr", "#FF5A5F"); r.setProperty("--sun", "#FF9F1C");
   r.setProperty("--ts", String(+S.textSize || 1)); r.setProperty("--as", String(+S.azkarSize || 1));
   document.documentElement.style.fontSize = 16 * (+S.textSize || 1) + "px";
@@ -152,11 +168,7 @@ function wIcon(c, day) {
   if (c === 0) return day ? "☀️" : "🌙"; if (c <= 2) return day ? "🌤️" : "☁️"; if (c === 3) return "☁️"; if (c <= 48) return "🌫️";
   if (c <= 57) return "🌦️"; if (c <= 67) return "🌧️"; if (c <= 77) return "🌨️"; if (c <= 82) return "🌧️"; if (c <= 86) return "🌨️"; return "⛈️";
 }
-function weatherChip() {
-  const w = weather;
-  const txt = !w ? (net.online ? "…" : "—") : (S.temp === "f" ? Math.round(w.t * 9 / 5 + 32) + "°F" : Math.round(w.t) + "°C");
-  return `<div class="chip" id="wchip"><span>${w ? wIcon(w.code, w.day) : (net.online ? "☁️" : "📴")}</span><b>${txt}</b></div>`;
-}
+function weatherChip() { return weatherBlock(); }
 function qiblaDeg() { return Qibla.bearing(S.place.lat, S.place.lon); }
 
 async function useGPS(silent) {
@@ -183,7 +195,7 @@ async function useGPS(silent) {
     } else if (near.d >= 40) { iso = near.c.iso; }
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || near.c.tz;
     S.place = { name, country, lat, lon, tz, iso, gps: true }; S.gps = true; save();
-    gpsState = "ok"; weather = null; loadWeather(); scheduleAlerts(); render(); if (S.tab === 2) loadMosques();
+    gpsState = "ok"; gpsFixAt = Date.now(); weather = null; loadWeather(); scheduleAlerts(); render(); if (S.tab === 1) loadMosques();
   } catch (e) { gpsState = "denied"; render(); }
 }
 let gpsState = "idle", gpsAcc = null;
@@ -196,14 +208,15 @@ async function scheduleAlerts() {
     const pending = await LocalNotifications.getPending();
     if (pending.notifications.length) await LocalNotifications.cancel({ notifications: pending.notifications });
     if (!S.notif) return;
-    await LocalNotifications.createChannel({ id: "adhan", name: "Adhan alerts", importance: 5, visibility: 1, vibration: true });
+    await LocalNotifications.createChannel({ id: "adhan", name: "Prayer alerts", importance: 5, visibility: 1, vibration: true });
+    await LocalNotifications.createChannel({ id: "adhan_sound", name: "Adhan", importance: 5, visibility: 1, vibration: true, sound: "adhan.wav" });
     const p = S.place, now = Date.now();
     const ev = prayerEvents(now, p.lat, p.lon, p.tz, method(), S.hanafi, offs(), 10).all
-      .filter(e => e.date > now && (e.prayer !== "sunrise" || S.sunriseAlert) && !S.muted[e.prayer]);
+      .filter(e => e.date > now && (e.prayer !== "sunrise" || S.sunriseAlert) && (!S.muted[e.prayer] || alarmOn(e.prayer)));
     const list = []; let id = 1;
     for (const e of ev.slice(0, 120)) {
-      const nm = pName(e.prayer);
-      list.push({ id: id++, title: ar() ? `حان وقت ${nm}` : F("Time for {0}", nm), body: p.name, channelId: "adhan", schedule: { at: new Date(e.date), allowWhileIdle: true } });
+      const nm = pName(e.prayer), sound = alarmOn(e.prayer);
+      list.push({ id: id++, title: nm, body: p.name, channelId: sound ? "adhan_sound" : "adhan", sound: sound ? "adhan.wav" : undefined, schedule: { at: new Date(e.date), allowWhileIdle: true } });
       if (S.remind > 0 && e.date - S.remind * 60000 > now)
         list.push({ id: id++, title: ar() ? `${nm} بعد ${S.remind} دقيقة` : F("{0} in {1} minutes", nm, S.remind), body: p.name, channelId: "adhan", schedule: { at: new Date(e.date - S.remind * 60000), allowWhileIdle: true } });
     }
@@ -238,169 +251,115 @@ function placeBtn() {
   return `<button class="pill" data-act="picker">${I.pin}<span class="pn">${esc(S.place.name)}</span>${I.chev}</button>`;
 }
 
-/* ----- Qibla tab ----- */
-function dialSVG() {
-  let ticks = "";
-  for (let i = 0; i < 72; i++) {
-    const major = i % 6 === 0, r0 = major ? 119 : 120, r1 = major ? 131 : 128, a = i * 5 * Math.PI / 180;
-    ticks += `<line x1="${150 + r0 * Math.sin(a)}" y1="${150 - r0 * Math.cos(a)}" x2="${150 + r1 * Math.sin(a)}" y2="${150 - r1 * Math.cos(a)}" stroke="${major ? "#EEF2F8" : "#8E98AE"}" stroke-width="${major ? 2.6 : 1.4}"/>`;
-  }
-  let labels = "";
-  for (let d = 0; d < 360; d += 30) {
-    const card = d % 90 === 0, t = d === 0 ? "N" : d === 90 ? "E" : d === 180 ? "S" : d === 270 ? "W" : d + "°";
-    labels += `<text transform="rotate(${d} 150 150)" x="150" y="${150 - (card ? 108 : 98)}" text-anchor="middle" dominant-baseline="central" font-size="${card ? 18 : 11}" font-weight="${card ? 800 : 700}" fill="${card ? "#7AD0FF" : "#D0D6E3"}">${t}</text>`;
-  }
-  return `
-  <svg viewBox="-20 -20 340 340" class="dialsvg">
-   <defs>
-    <linearGradient id="gEdge" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A3040"/><stop offset="1" stop-color="#12151D"/></linearGradient>
-    <linearGradient id="gTop" x1=".25" y1="0" x2=".75" y2="1"><stop offset="0" stop-color="#5A6480"/><stop offset="1" stop-color="#394058"/></linearGradient>
-    <radialGradient id="gShadow"><stop offset=".5" stop-color="#000" stop-opacity=".6"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient>
-    <radialGradient id="gCore" cx=".4" cy=".28" r=".8"><stop offset="0" stop-color="#C9EBFF"/><stop offset=".5" stop-color="#55BBFA"/><stop offset="1" stop-color="#1F78BF"/></radialGradient>
-    <radialGradient id="gMark" cx=".4" cy=".3" r=".7"><stop offset="0" stop-color="#9FDCFF"/><stop offset=".5" stop-color="#55BBFA"/><stop offset="1" stop-color="#1F78BF"/></radialGradient>
-    <linearGradient id="gRay" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#55BBFA" stop-opacity="0"/><stop offset="1" stop-color="#55BBFA"/></linearGradient>
-    <radialGradient id="gSun"><stop offset="0" stop-color="#FF9F1C" stop-opacity=".7"/><stop offset="1" stop-color="#FF9F1C" stop-opacity="0"/></radialGradient>
-   </defs>
-   <ellipse cx="150" cy="170" rx="190" ry="170" fill="url(#gShadow)"/>
-   <circle cx="150" cy="168" r="150" fill="url(#gEdge)"/>
-   <circle cx="150" cy="150" r="150" fill="url(#gTop)"/>
-   <circle cx="150" cy="150" r="149" fill="none" stroke="#fff" stroke-opacity=".2" stroke-width="1.5"/>
-   <circle cx="150" cy="150" r="141" fill="none" stroke="#1B1F2B" stroke-opacity=".55" stroke-width="2"/>
-   <g id="card" style="transform-origin:150px 150px">
-     ${ticks}${labels}
-     <circle cx="150" cy="150" r="80" fill="#20242F" stroke="#0E1118" stroke-opacity=".8" stroke-width="3"/>
-     <g id="sunlayer"></g>
-     <g id="qmark" style="transform-origin:150px 150px">
-       <rect x="147.500" y="24" width="5" height="60" rx="2.500" fill="url(#gRay)"/>
-       <circle cx="150" cy="28" r="15" fill="#1B3550"/>
-       <circle cx="150" cy="24" r="15" fill="url(#gMark)" stroke="#fff" stroke-opacity=".8" stroke-width="1.500"/>
-       <g id="kaaba" style="transform-origin:150px 24px"><rect x="143" y="17" width="14" height="14" rx="2" fill="#10151F"/><rect x="143" y="22" width="14" height="2" fill="#FFB627"/></g>
-     </g>
-   </g>
-   <circle cx="150" cy="162" r="52" fill="#16537F"/>
-   <circle cx="150" cy="150" r="52" fill="url(#gCore)" stroke="#fff" stroke-opacity=".7" stroke-width="1.500"/>
-   <ellipse cx="150" cy="116" rx="30" ry="13" fill="#fff" fill-opacity=".35"/>
-   <g transform="translate(0,-17)">
-     <polygon points="128,143 150,152 150,176 128,167" fill="#BFE7FF"/><polygon points="172,143 150,152 150,176 172,167" fill="#8FD2FA"/>
-     <polygon points="150,134 172,143 150,152 128,143" fill="#E4F6FF"/><polyline points="128,148 150,157 172,148" fill="none" stroke="#FFB627" stroke-width="2.400" stroke-linejoin="round"/>
-   </g>
-   <polygon points="139,-10 161,-10 150,8" fill="#fff" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
-  </svg>`;
+/* ----- Home: date, location, now/next with weather, compass, prayer rows ----- */
+const PI = {
+  fajr: '<svg viewBox="0 0 24 24"><path d="M3 18h18M12 6v4M5.5 9.5l2 2M18.5 9.5l-2 2M7 18a5 5 0 0 1 10 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  sunrise: '<svg viewBox="0 0 24 24"><path d="M3 18h18M12 4v3M4.5 9l2 2M19.5 9l-2 2M7 18a5 5 0 0 1 10 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  dhuhr: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2 2M16.7 16.7l2 2M5.3 18.7l2-2M16.7 7.3l2-2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
+  asr: '<svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.4" fill="currentColor"/><path d="M9 2.5v1.8M2.5 9h1.8M4.4 4.4l1.2 1.2M13.6 4.4l-1.2 1.2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 20h10a3.5 3.5 0 0 0 .3-7 4.5 4.5 0 0 0-8.6 1A3 3 0 0 0 8 20z" fill="currentColor" opacity=".9"/></svg>',
+  maghrib: '<svg viewBox="0 0 24 24"><path d="M3 18h18M12 8v-3M4.5 11l2 2M19.5 11l-2 2M7 18a5 5 0 0 1 10 0M9 21h6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  isha: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.500 4a6.500 6.500 0 0 0 10.500 10.500z" fill="currentColor"/><path d="M17 3v3M15.500 4.500h3" stroke="currentColor" stroke-width="1.800" stroke-linecap="round"/></svg>',
+  alarm: '<svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 9.500V13l2.500 1.500M4 6l3-2.500M20 6l-3-2.500" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
+  alarmOn: '<svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7.500" fill="currentColor"/><path d="M12 9v4.500l2.500 1.500M4 6l3-2.500M20 6l-3-2.500" fill="none" stroke="var(--tile)" stroke-width="2" stroke-linecap="round"/></svg>',
+  gps: '<svg viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11.500A7 7 0 0 0 5 9.500C5 14.800 12 21 12 21z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9.500" r="2.500" fill="currentColor"/></svg>',
+  gpsOff: '<svg viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11.500A7 7 0 0 0 5 9.500C5 14.800 12 21 12 21z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 4l16 16" stroke="currentColor" stroke-width="2.400" stroke-linecap="round"/></svg>',
+  book: '<svg viewBox="0 0 24 24"><path d="M4 5.500A2.500 2.500 0 0 1 6.500 3H20v15H6.500A2.500 2.500 0 0 0 4 20.500zM4 20.500A2.500 2.500 0 0 0 6.500 23H20" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>',
+};
+I.book = PI.book;
+let gpsFixAt = null;
+const agoTxt = () => {
+  if (!gpsFixAt) return L("just now"); const m = Math.floor((Date.now() - gpsFixAt) / 60000);
+  if (ar()) return m < 1 ? "الآن" : m < 60 ? `منذ ${m} د` : `منذ ${Math.floor(m / 60)} س`;
+  return m < 1 ? L("just now") : m < 60 ? F("{0} min ago", m) : F("{0} h ago", Math.floor(m / 60));
+};
+const alarmOn = k => k !== "sunrise" && !!(S.alarm && S.alarm[k]);
+
+function bannerHTML() {
+  const p = S.place, loc = p.country ? `${p.name}, ${p.country}` : p.name;
+  const pill = (ic, t, act, cls) => `<button class="bpill ${cls || ""}" data-act="${act}">${ic ? ic : ""}<span>${t}</span></button>`;
+  const cityPill = pill("", L("City"), "picker");
+  let tint, title, sub, icon = I.pin, trailing = "", dot = false, spin = false;
+  if (gpsState === "finding") { tint = "var(--accent)"; title = L("Finding your location…"); sub = ar() ? `عرض ${p.name} حتى التأكيد` : F("Showing {0} until confirmed", p.name); spin = true; trailing = cityPill; }
+  else if (gpsState === "denied") { tint = "var(--zr)"; title = L("Location not found"); sub = ar() ? `استخدام ${p.name}` : F("Using {0}", p.name); icon = PI.gpsOff; trailing = pill("", L("Choose city"), "picker", "solid"); }
+  else if (S.gps) { tint = "var(--zg)"; title = loc; sub = ar() ? "GPS مؤكد · " + agoTxt() : F("GPS confirmed · {0}", agoTxt()); dot = true; trailing = pill(I.refresh, L("Refresh"), "refreshGPS", "deep") + cityPill; }
+  else { tint = "var(--muted)"; title = p.name; sub = L("Manual city"); trailing = pill(PI.gps, L("Use GPS"), "refreshGPS", "deep") + cityPill; }
+  return `<div class="bnr" style="--t:${tint}"><div class="bico">${spin ? '<i class="spin"></i>' : icon}${dot ? '<i class="bdot"></i>' : ""}</div>
+    <div class="btxt"><b>${esc(title)}</b><small>${esc(sub)}</small></div><div class="bact">${trailing}</div></div>`;
 }
-function sunLayerSVG(sn) {
-  const r = 88, pt = a => [150 + r * Math.sin(a * Math.PI / 180), 150 - r * Math.cos(a * Math.PI / 180)];
-  const f = a => a - 360 * Math.floor(a / 360);
-  const span = sn.northern ? f(sn.setAz - sn.riseAz) : f(sn.riseAz - sn.setAz), start = sn.northern ? sn.riseAz : sn.setAz;
-  const [x0, y0] = pt(start), [x1, y1] = pt(start + span), [sx, sy] = pt(sn.az), [rx, ry] = pt(sn.riseAz), [ex, ey] = pt(sn.setAz);
-  return `<path d="M${x0} ${y0} A${r} ${r} 0 ${span > 180 ? 1 : 0} 1 ${x1} ${y1}" fill="none" stroke="#FF9F1C" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.1 7"/>
-  <circle cx="${rx}" cy="${ry}" r="4" fill="#FF9F1C"/><circle cx="${ex}" cy="${ey}" r="4" fill="#FF9F1C"/>
-  <g opacity="${sn.up ? 1 : 0.4}"><circle cx="${sx}" cy="${sy}" r="28" fill="url(#gSun)"/><circle cx="${sx}" cy="${sy + 4}" r="10" fill="#8A4F00"/><circle cx="${sx}" cy="${sy}" r="10" fill="#FF9F1C" stroke="#FFD08A" stroke-width="2"/></g>`;
+function weatherBlock() {
+  const w = weather;
+  const txt = !w ? (net.online ? "…" : "—") : (S.temp === "f" ? Math.round(w.t * 9 / 5 + 32) + "°F" : Math.round(w.t) + "°C");
+  return `<div class="wblk" id="wchip"><span class="wi">${w ? wIcon(w.code, w.day) : (net.online ? "☁️" : "📴")}</span><b>${txt}</b></div>`;
 }
+
+function zoneHex(d) { if (d == null) return T.muted; const a = Math.abs(d); return a > 45 ? "#FF5A5F" : a > 15 ? "#FFC93C" : "#3DD68C"; }
 function target() { return S.preview ? previewDeg : sensor.heading; }
-function zoneColor(d) { if (d == null) return "var(--muted)"; const a = Math.abs(d); return a > 45 ? "var(--zr)" : a > 15 ? "var(--zy)" : "var(--zg)"; }
-function qibText(d) {
-  if (d == null) return [L("Finding the compass"), ar() ? `القبلة ${Math.round(qiblaDeg())}° من الشمال الحقيقي` : F("Qibla is {0}° {1} of true north", Math.round(qiblaDeg()), cardinal(qiblaDeg()))];
-  const a = Math.abs(d);
-  if (a <= 3) return [L("You're facing the Qibla"), L("Hold steady, then begin your prayer")];
-  return [ar() ? `لُف ${d > 0 ? "يمينًا" : "يسارًا"} ${Math.round(a)}°` : F(d > 0 ? "Turn right {0}°" : "Turn left {0}°", Math.round(a)),
-    L(a <= 15 ? "Almost there, hold steady" : a <= 45 ? "Getting closer, keep turning" : "Rotate until the Kaaba reaches the top")];
-}
 function updateDial() {
-  if (!dialEls) return;
+  const root = $("#hdial"); if (!root) return;
   const t = target(), q = qiblaDeg();
-  if (t != null) { shown += diff(t, shown); }
-  dialEls.card.style.transform = `rotate(${-shown}deg)`;
-  dialEls.kaaba.style.transform = `rotate(${shown - q}deg)`;
+  if (t != null) shown += diff(t, shown);
   const d = t == null ? null : diff(q, t), aligned = d != null && Math.abs(d) <= 3;
-  const [ti, su] = qibText(d), z = zoneColor(d);
-  const st = $("#qstatus"); if (st) {
-    st.style.setProperty("--z", z);
-    $("#qt").textContent = ti; $("#qs").textContent = su;
-    $("#qi").innerHTML = aligned ? I.check : (d != null && d < 0 ? I.rotL : I.rot);
-  }
+  const km = Math.round(Qibla.distanceKm(S.place.lat, S.place.lon));
+  dialUpdate(root, T, shown, q, aligned, S.compass === "rings" ? zoneHex(d) : null, `${km.toLocaleString("en-US")} ${ar() ? "كم" : "km"}`);
   if (aligned && !wasAligned && navigator.vibrate) navigator.vibrate(40);
   wasAligned = aligned;
 }
-function viewQibla() {
-  const p = S.place, q = qiblaDeg(), sn = sunInfo(p.lat, p.lon, new Date());
-  const today = dayFor(Date.now(), p.lat, p.lon, p.tz, method(), S.hanafi, offs());
-  const km = Math.round(Qibla.distanceKm(p.lat, p.lon));
+function dialHTML() {
+  const rings = S.compass === "rings";
+  return `<div class="hdial ${rings ? "rings" : "classic"}"><div class="dialwrap2" id="hdial"><div class="${rings ? "" : "dial"}">${rings ? ringsSVG(T) : classicSVG(T, S.compass !== "classicGrey")}</div></div></div>`;
+}
+function viewHome() {
+  const now = Date.now(), p = S.place;
+  const shownMs = now + prayDay * 86400000;
+  const day = prayDay === 0 ? prayerEvents(now, p.lat, p.lon, p.tz, method(), S.hanafi, offs()).today : dayFor(shownMs, p.lat, p.lon, p.tz, method(), S.hanafi, offs());
+  const dopt = prayDay === 0 ? { weekday: "long", day: "numeric", month: "long" } : { weekday: "long", day: "numeric", month: "long", year: "numeric" };
+  const greg = new Intl.DateTimeFormat(ar() ? "ar-u-nu-latn" : U[S.lang] ? S.lang + "-u-nu-latn" : "en-GB", { timeZone: p.tz, ...dopt }).format(new Date(shownMs));
+  const hij = new Intl.DateTimeFormat((ar() || !U[S.lang] ? "ar-SA" : S.lang) + "-u-ca-islamic-umalqura-nu-latn", { timeZone: p.tz, day: "numeric", month: "long", year: "numeric" }).format(new Date(shownMs)).replace(/\s*هـ$/, "") + (U[S.lang] ? "" : " هـ");
   let note = "";
   if (!S.preview) {
     if (sensor.denied) note = L("This device has no compass. Turn on preview mode in Settings.");
     else if (needsPerm() && !sensor.listening) note = `<button class="btn" data-act="compass">${ar() ? "تشغيل البوصلة" : F("Start the compass")}</button>`;
     else if (!sensor.available) note = L("This device has no compass. Turn on preview mode in Settings.");
     else if (sensor.heading == null) note = L("Starting the compass…");
-    else note = ar() ? "يعرض الشمال المغناطيسي. حرّك هاتفك على شكل ٨ للمعايرة." : F("Showing magnetic north. Move your phone in a figure of eight to calibrate.");
   }
-  const acc = gpsAcc != null ? `±${Math.round(gpsAcc)} ${L("m")}` : (ar() ? "لا يوجد تحديد" : F("no fix yet"));
-  return `${title("Qibla", "القبلة")}
-  <div class="row between gap"><div style="flex:1;min-width:0">${placeBtn()}</div>${weatherChip()}</div>
-  <div class="srcline"><i class="dot ${net.online ? "on" : ""}"></i>${ar() ? (net.online ? `متصل · GPS ${acc}` : `دون اتصال · GPS والبوصلة · ${acc}`) : (net.online ? F("Online · GPS {0}", acc) : F("Offline · using GPS and compass · {0}", acc))}</div>
-  <div class="dialwrap"><div class="dial">${dialSVG()}</div></div>
-  <div class="card qcard">
-    <div class="status" id="qstatus"><div class="zbtn" id="qi">${I.rot}</div><div class="stxt"><div class="st1" id="qt"></div><div class="st2" id="qs"></div></div></div>
-    <div class="tiles">
-      ${tile("☀️↑", "Sunrise", clock(today.sunrise, p.tz), (ar() ? "عند " + Math.round(sn.riseAz) + "°" : F("at {0}°", Math.round(sn.riseAz))))}
-      ${tile("☀️↓", "Sunset", clock(today.maghrib, p.tz), (ar() ? "عند " + Math.round(sn.setAz) + "°" : F("at {0}°", Math.round(sn.setAz))))}
-      ${tile("↔", "Distance", km.toLocaleString("en-US"), L("km to Makkah"))}
-    </div>
-  </div>
-  ${S.preview ? `<div class="prev"><div class="cap">${L("PREVIEW HEADING")}</div><input type="range" min="0" max="359" step="1" value="${previewDeg}" id="prevSlider"></div>` : `<div class="note">${note}</div>`}`;
-}
-const tile = (ic, lab, val, unit) => `<div class="tile"><div class="tl"><span>${ic}</span>${L(lab)}</div><div class="tv">${val}</div><div class="tu">${unit}</div></div>`;
-function afterQibla() {
-  dialEls = { card: $("#card"), kaaba: $("#kaaba"), q: $("#qmark") };
-  const p = S.place; $("#sunlayer").innerHTML = sunLayerSVG(sunInfo(p.lat, p.lon, new Date()));
-  dialEls.q.style.transform = `rotate(${qiblaDeg()}deg)`;
-  const sl = $("#prevSlider"); if (sl) sl.oninput = () => { previewDeg = +sl.value; updateDial(); };
-  updateDial();
-  if (!S.preview) startCompass();
-}
-
-/* ----- Prayer tab ----- */
-function viewPrayer() {
-  const now = Date.now(), p = S.place;
-  const shownMs = now + prayDay * 86400000;
-  const day = prayDay === 0 ? prayerEvents(now, p.lat, p.lon, p.tz, method(), S.hanafi, offs()).today : dayFor(shownMs, p.lat, p.lon, p.tz, method(), S.hanafi, offs());
-  const greg = new Intl.DateTimeFormat(ar() ? "ar-u-nu-latn" : U[S.lang] ? S.lang + "-u-nu-latn" : "en-GB", { timeZone: p.tz, weekday: "long", day: "numeric", month: "long" }).format(new Date(shownMs));
-  const hij = new Intl.DateTimeFormat((ar() || !U[S.lang] ? "ar-SA" : S.lang) + "-u-ca-islamic-umalqura-nu-latn", { timeZone: p.tz, day: "numeric", month: "long", year: "numeric" }).format(new Date(shownMs)).replace(/\s*هـ$/, "") + (U[S.lang] ? "" : " هـ");
-  const rows = PRAYERS.map(k => {
-    const muted = S.muted[k];
-    return `<div class="prow" id="r-${k}" data-k="${k}">
-      <div class="pn1">${pName(k)}</div><div class="pt">${clock(day[k], p.tz)}</div>
-      <div class="pn2">${ar() ? "" : pLocal(k)}</div>
-      ${k === "sunrise" ? '<span class="bellsp"></span>' : `<button class="bell ${muted ? "off" : ""}" data-act="mute" data-k="${k}" aria-label="mute">${muted ? I.bellOff : I.bell}</button>`}
-    </div>`;
-  }).join("");
+  const rows = PRAYERS.map(k => `<div class="r2" id="r-${k}" data-k="${k}"><div class="rl"><span class="ri">${PI[k]}</span><span class="rn">${pName(k)}</span><span class="rchip" id="rc-${k}"></span></div>
+    <div class="rt">${clock(day[k], p.tz)}</div><div class="rr">${k === "sunrise" ? "" : `<button class="rb ${alarmOn(k) ? "on" : ""}" data-act="alarm" data-k="${k}" aria-label="adhan">${alarmOn(k) ? PI.alarmOn : PI.alarm}</button>`}
+    <button class="rb ${S.muted[k] ? "" : "on"}" data-act="mute" data-k="${k}" aria-label="alert">${S.muted[k] ? I.bellOff : I.bell}</button></div></div>`).join("");
   return `${title("Prayer Times", "مواقيت الصلاة")}
-  <div class="row between gap">${placeBtn()}<button class="iconbtn" data-act="refreshGPS" aria-label="GPS">${I.refresh}</button></div>
-  <div class="datebar"><button class="iconbtn sm" data-act="day" data-d="-1">${rtl() ? I.right : I.left}</button>
-    <div class="dates"><b>${greg}</b><span>${hij}</span></div>
-    <button class="iconbtn sm" data-act="day" data-d="1">${rtl() ? I.left : I.right}</button></div>
-  <div class="hero" id="hero"></div>
-  <div class="plist">${rows}</div>
+  <div class="datecard"><div class="dtx"><b>${greg}</b><span>${hij}</span></div>
+    <div class="dnav"><button class="nbtn" data-act="day" data-d="-1">${rtl() ? I.right : I.left}</button><button class="nbtn" data-act="day" data-d="1">${rtl() ? I.left : I.right}</button></div></div>
+  <div id="bnrhost">${bannerHTML()}</div>
+  <div class="hero2" id="hero"></div>
+  ${dialHTML()}
+  ${S.preview ? `<div class="prev"><div class="cap">${L("PREVIEW HEADING")}</div><input type="range" min="0" max="359" step="1" value="${previewDeg}" id="prevSlider"></div>` : (note ? `<div class="note">${note}</div>` : "")}
+  <div class="plist2">${rows}</div>
   <div class="foot">${ar() ? `تم الحساب على هذا الجهاز · طريقة ${L(method().name)}` : F("Calculated on this device · {0} method", L(method().name))}</div>`;
 }
-function tickPrayer() {
+function afterHome() {
+  dialEls = true;
+  const p = S.place; const sl = $("#sunlayer"); if (sl) sl.innerHTML = sunLayerSVG(sunInfo(p.lat, p.lon, new Date()));
+  const sld = $("#prevSlider"); if (sld) sld.oninput = () => { previewDeg = +sld.value; updateDial(); };
+  updateDial(); tickHome();
+  if (!S.preview) startCompass();
+}
+function tickHome() {
   const hero = $("#hero"); if (!hero) return;
   const p = S.place, now = Date.now();
   const r = prayerEvents(now, p.lat, p.lon, p.tz, method(), S.hanafi, offs());
   const counted = r.all.filter(e => e.prayer !== "sunrise");
   const next = counted.find(e => e.date > now), prev = [...counted].reverse().find(e => e.date <= now);
-  if (next) {
-    const frac = prev ? Math.min(1, Math.max(0, (now - prev.date) / (next.date - prev.date))) : 0;
-    const C = 2 * Math.PI * 64;
-    hero.innerHTML = `<div class="ringwrap"><svg viewBox="0 0 150 150"><circle cx="75" cy="75" r="64" fill="none" stroke="var(--tile)" stroke-width="9"/><circle cx="75" cy="75" r="64" fill="none" stroke="var(--accent)" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C * frac} ${C}" transform="rotate(-90 75 75)"/></svg>
-      <div class="rtxt"><div class="r1">${ar() ? `${pName(next.prayer)} بعد` : F("{0} in", pName(next.prayer))}</div><div class="r2">${cd(next.date - now)}</div><div class="r3">${ar() ? "عند " + clock(next.date, p.tz) : F("at {0}", clock(next.date, p.tz))}</div></div></div>`;
-  }
+  const frac = next && prev ? Math.max(0.02, Math.min(1, (now - prev.date) / (next.date - prev.date))) : 0;
+  const C = 2 * Math.PI * 46.5;
+  hero.innerHTML = `<div class="hn"><span class="nowb">${L("NOW")}</span><div class="hnm"><span class="hic">${prev ? PI[prev.prayer] : I.clock}</span><b>${prev ? pName(prev.prayer) : "—"}</b></div><div class="hnt">${prev ? clock(prev.date, p.tz) : "--:--"}</div></div>
+    ${weatherBlock()}
+    <div class="hrg"><svg viewBox="0 0 104 104"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--deep)"/></linearGradient></defs><circle cx="52" cy="52" r="46.5" fill="none" stroke="var(--tile)" stroke-width="7"/><circle cx="52" cy="52" r="46.5" fill="none" stroke="url(#rg)" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C * frac} ${C}" transform="rotate(-90 52 52)"/></svg>
+      <div class="hrt"><div class="r1"><i>${next ? PI[next.prayer] : ""}</i>${next ? (ar() ? `${pName(next.prayer)} بعد` : F("{0} in", pName(next.prayer))) : "—"}</div><div class="r2t">${next ? cd(next.date - now) : "--:--:--"}</div><div class="r3">${next ? (ar() ? "عند " + clock(next.date, p.tz) : F("at {0}", clock(next.date, p.tz))) : L("Not available here")}</div></div></div>`;
   for (const k of PRAYERS) {
     const el = $("#r-" + k); if (!el) continue;
     const t = r.today[k];
     const isNow = prayDay === 0 && prev && prev.prayer === k && prev.date === t, isNext = prayDay === 0 && next && next.prayer === k && next.date === t;
-    el.classList.toggle("now", !!isNow); el.classList.toggle("next", !!isNext);
-    el.classList.toggle("past", prayDay === 0 && !isNow && t != null && t < now);
-    if (prayDay !== 0) el.classList.remove("now", "next", "past");
+    el.classList.toggle("now", !!isNow); el.classList.toggle("past", prayDay === 0 && !isNow && t != null && t < now);
+    const ch = $("#rc-" + k); if (ch) ch.innerHTML = isNow ? `<i class="chip1 on">${L("NOW")}</i>` : isNext ? `<i class="chip1">${L("NEXT")}</i>` : "";
   }
 }
 
@@ -434,8 +393,8 @@ async function loadMosques(force) {
   if (!force && mosqueState.key === key) return;
   mosqueState = { loading: true, list: mosqueState.key === key ? mosqueState.list : [], failed: false, key };
   try { const cached = JSON.parse(localStorage.getItem("rafeeq_m_" + key) || "null"); if (cached && !mosqueState.list.length) mosqueState.list = cached; } catch (e) {}
-  if (S.tab === 2) render();
-  if (!net.online) { mosqueState.loading = false; if (S.tab === 2) render(); return; }
+  if (S.tab === 1) render();
+  if (!net.online) { mosqueState.loading = false; if (S.tab === 1) render(); return; }
   const ql = `[out:json][timeout:10];(node["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${c.lat},${c.lon});way["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${c.lat},${c.lon}););out center tags 60;`;
   let j = null;
   for (const host of ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]) {
@@ -451,7 +410,7 @@ async function loadMosques(force) {
     out.sort((a, b) => a.d - b.d); mosqueState.list = out.slice(0, 40);
     try { localStorage.setItem("rafeeq_m_" + key, JSON.stringify(mosqueState.list)); } catch (e) {}
   } else mosqueState.failed = !mosqueState.list.length;
-  mosqueState.loading = false; if (S.tab === 2) render();
+  mosqueState.loading = false; if (S.tab === 1) render();
 }
 
 /* ----- Azkhar tab ----- */
@@ -491,9 +450,9 @@ function viewSettings() {
     `<button class="srow lbtn" data-act="picker"><div class="sl">${L("Choose a city")}<small>${S.gps ? "" : esc(S.place.name)}</small></div>${S.gps ? "›" : "✓ ›"}</button>` +
     srow(L("Local time there"), `<b class="muted">${tf(S.place.tz).format(new Date())}</b>`, esc(S.place.tz)),
     ar() ? "الصلاة والقبلة والمساجد والطقس كلها تعتمد على هذا الموقع." : F("Prayer times, Qibla, mosques and weather all use this location."))}
-  ${sect("theme", `<div class="swatches">${sw}</div>` + srow(L("Appearance"), sel("appearance", [["auto", L("Auto")], ["light", L("Light")], ["dark", L("Dark")]], S.appearance)))}
+  ${sect("theme", `<div class="swatches">${sw}</div>` + srow(L("Compass style"), sel("compass", [["classic", L("Classic")], ["rings", L("Rings")]], S.compass === "rings" ? "rings" : "classic")) + srow(L("Appearance"), sel("appearance", [["auto", L("Auto")], ["light", L("Light")], ["dark", L("Dark")]], S.appearance)))}
   ${sect("accessibility", srow(L("Text size"), sel("textSize", tsizes, S.textSize)) + srow(L("Azkhar text size"), sel("azkarSize", asizes, S.azkarSize)) + srow(L("Bold text"), tog("bold", S.bold)))}
-  ${sect("language", srow(L("Application language"), sel("lang", LANGS, S.lang)))}
+  ${sect("language", srow(L("Application language"), sel("lang", LANGS, S.lang)) + srow(L("App font"), sel("fontID", FONTS.map(([v, t]) => [v, v === "system" ? L("System default") : t]), S.fontID)))}
   ${sect("prayers", srow(L("Method"), sel("method", METHODS.map(m => [m.id, L(m.name)]), S.method)) + srow(L("Hanafi Asr"), tog("hanafi", S.hanafi)))}
   ${sect("Adjust times", adj, L("Add or subtract minutes to match your local mosque or official timetable."))}
   ${sect("notifications", srow(L("Adhan alerts"), tog("notif", S.notif)) + srow(L("Remind"), sel("remind", [[0, L("Off")], [5, "5 " + L("min")], [10, "10 " + L("min")], [15, "15 " + L("min")], [30, "30 " + L("min")]], S.remind)) + srow(L("Sunrise alert"), tog("sunriseAlert", S.sunriseAlert)),
@@ -536,19 +495,20 @@ function remoteSearch(q) {
 }
 function renderSheet() { const el = $("#sheet"); el.innerHTML = pickerOpen ? viewPicker() : ""; }
 function choose(c) {
-  S.place = { ...c }; S.gps = false; save(); weather = null; pickerOpen = null; renderSheet(); loadWeather(); scheduleAlerts(); render(); if (S.tab === 2) loadMosques();
+  S.place = { ...c }; S.gps = false; save(); weather = null; pickerOpen = null; renderSheet(); loadWeather(); scheduleAlerts(); render(); if (S.tab === 1) loadMosques();
 }
 
 /* ---------- render & events ---------- */
-const TABS = [["Qibla", "qibla"], ["Prayer Times", "clock"], ["Mosques", "mosque"], ["Azkhar", "dua"], ["Settings", "gear"]];
+const TABS = [["Prayer Times", "clock"], ["Mosques", "mosque"], ["Azkhar", "dua"], ["Mushaf", "book"], ["Settings", "gear"]];
 function render() {
   applyTheme();
   const v = $("#view"), st = v.scrollTop;
-  v.innerHTML = [viewQibla, viewPrayer, viewMosques, viewAzkhar, viewSettings][S.tab]();
+  document.body.classList.toggle("inmush", S.tab === 3);
+  v.innerHTML = [viewHome, viewMosques, viewAzkhar, () => mushafHTML(ar()), viewSettings][S.tab]();
   $("#tabs").innerHTML = TABS.map((t, i) => `<button class="tab ${i === S.tab ? "sel" : ""}" data-act="tab" data-i="${i}">${I[t[1]]}<span>${L(t[0])}</span></button>`).join("");
-  if (S.tab === 0) afterQibla(); else dialEls = null;
-  if (S.tab === 1) tickPrayer();
-  if (S.tab === 2) loadMosques();
+  if (S.tab === 0) afterHome(); else dialEls = null;
+  if (S.tab === 3) mushafAfter(ar(), L);
+  if (S.tab === 1) loadMosques();
   v.scrollTop = st;
 }
 function vibr() { try { navigator.vibrate && navigator.vibrate(12); } catch (e) {} }
@@ -573,6 +533,11 @@ const ACT = {
     const fin = c + 1 >= n, done = { ar: "تم", tr: "Tamam", fr: "Terminé", it: "Fatto", de: "Fertig", nl: "Klaar", es: "Hecho" }[S.lang] || (X[S.lang] && X[S.lang].done) || "Done";
     $("#c-" + id).textContent = fin ? done : `${c + 1} / ${n}`; el.querySelector(".dbar i").style.width = Math.min(100, (c + 1) / n * 100) + "%"; el.classList.toggle("fin", fin);
   },
+  alarm(el) { const k = el.dataset.k; S.alarm = { ...(S.alarm || {}), [k]: !alarmOn(k) }; save(); scheduleAlerts(); render(); },
+  mclose() { S.tab = 0; save(); render(); },
+  mindex() { mushafIndexToggle(ar(), L); },
+  mgo(el) { mushafSetPage(+el.dataset.p); render(); },
+  mseg(el) { mushafBy(el.dataset.v === "1"); },
   pal(el) { S.palette = el.dataset.id; save(); render(); },
   adj(el) { const k = el.dataset.k; S.off = { ...offs(), [k]: Math.max(-60, Math.min(60, (offs()[k] || 0) + +el.dataset.d)) }; save(); scheduleAlerts(); render(); },
 };
@@ -592,7 +557,7 @@ document.addEventListener("input", e => { if (e.target.id === "cq") { pickerQuer
 let sx = null, sy = null;
 document.addEventListener("touchstart", e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
 document.addEventListener("touchend", e => {
-  if (sx == null || S.tab !== 3 || azkarCat == null) return;
+  if (sx == null || S.tab !== 2 || azkarCat == null) return;
   const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy; sx = null;
   if (Math.abs(dx) > 80 && Math.abs(dx) > Math.abs(dy) * 1.5 && (rtl() ? dx < 0 : dx > 0)) ACT.back();
 }, { passive: true });
@@ -609,7 +574,7 @@ function welcome() {
 }
 function boot() {
   render(); loadWeather();
-  setInterval(() => { if (S.tab === 1) tickPrayer(); }, 1000);
+  setInterval(() => { if (S.tab === 0) tickHome(); }, 1000);
   setInterval(() => { if (S.tab === 0) { const p = S.place; $("#sunlayer") && ($("#sunlayer").innerHTML = sunLayerSVG(sunInfo(p.lat, p.lon, new Date()))); } }, 60000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { scheduleAlerts(); render(); } });
   if (!S.welcomed) welcome(); else { scheduleAlerts(); if (S.gps) useGPS(true); }

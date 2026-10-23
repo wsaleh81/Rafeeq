@@ -137,5 +137,15 @@
  "Current location": "الموقع الحالي",
  "Choose a city": "اختر مدينة",
  "Local time there": "الوقت المحلي هناك",
- "Use my location": "استخدم موقعي"
+ "Use my location": "استخدم موقعي",
+ "Mushaf": "المصحف",
+ "Compass style": "شكل البوصلة",
+ "Classic": "كلاسيكي",
+ "Rings": "دوائر",
+ "App font": "خط التطبيق",
+ "font": "الخط",
+ "System default": "افتراضي النظام",
+ "Surahs": "السور",
+ "Juz": "الأجزاء",
+ "ayahs": "آية"
 }
