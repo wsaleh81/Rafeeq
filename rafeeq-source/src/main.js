@@ -335,7 +335,6 @@ function viewHome() {
     <div class="hero2" id="hero"></div>
     ${dialHTML()}
     ${S.preview ? `<div class="prev"><div class="cap">${L("PREVIEW HEADING")}</div><input type="range" min="0" max="359" step="1" value="${previewDeg}" id="prevSlider"></div>` : (note ? `<div class="note">${note}</div>` : "")}
-    <div class="coords"><span class="ci">${I.pin}</span><div><div class="cl">${ar() ? "الإحداثيات" : F("Coordinates")}</div><b>${Math.abs(p.lat).toFixed(4)}° ${p.lat >= 0 ? "N" : "S"} · ${Math.abs(p.lon).toFixed(4)}° ${p.lon >= 0 ? "E" : "W"}</b></div></div>
    </div>
    <div class="hright">
     <div class="plist2">${rows}</div>

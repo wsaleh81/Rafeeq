@@ -67,7 +67,6 @@ struct PrayerView: View {
                             banner(now: now, place: p).padding(.top, 10)
                             hero(next: next, prev: prev, now: now, fmt: fmt).padding(.top, 10)
                             if let middle { middle }
-                            coordsCard(p)
                         }
                         .frame(maxWidth: .infinity)
                         .environment(\.layoutDirection, dir)
