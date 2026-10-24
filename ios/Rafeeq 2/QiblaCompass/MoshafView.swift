@@ -128,23 +128,77 @@ struct MoshafView: View {
             .background(Moshaf.paperDeep, in: Circle())
     }
 
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                Button(action: onClose) { circleButton("chevron.left") }
-                    .accessibilityLabel(L("Done"))
-                Spacer()
-                if q.isLoaded {
-                    Text("سورة " + q.suras[q.sura(ofPage: page) - 1].ar).font(.sys(size: 19, weight: .bold)).foregroundStyle(Moshaf.ink)
-                }
-                Spacer()
-                Button { showIndex = true } label: { circleButton("list.bullet") }
-                    .accessibilityLabel(Loc.ar ? "الفهرس" : L("Surahs"))
-            }
-            .padding(.horizontal, 16).padding(.vertical, 8)
+    /// Landscape: the page spread is the unit (odd page on the right, even page on the left, like the open book).
+    private var spread: Binding<Int> {
+        Binding(get: { (page - 1) / 2 }, set: { page = min($0 * 2 + 1, 604) })
+    }
 
-            if q.isLoaded {
-                // Right-to-left, like a printed Mushaf: the next page is to the left.
+    private func topBar(compact: Bool) -> some View {
+        HStack(spacing: 10) {
+            Button(action: onClose) { circleButton("chevron.left") }
+                .accessibilityLabel(L("Done"))
+            Spacer()
+            if q.isLoaded && !compact {
+                Text("سورة " + q.suras[q.sura(ofPage: page) - 1].ar).font(.sys(size: 19, weight: .bold)).foregroundStyle(Moshaf.ink)
+            }
+            Spacer()
+            Button { showIndex = true } label: { circleButton("list.bullet") }
+                .accessibilityLabel(Loc.ar ? "الفهرس" : L("Surahs"))
+        }
+        .padding(.horizontal, 16).padding(.vertical, compact ? 4 : 8)
+    }
+
+    var body: some View {
+        GeometryReader { g in
+            let landscape = g.size.width > g.size.height
+            Group {
+                if landscape {
+                    ZStack(alignment: .top) {
+                        pager(landscape: true, size: g.size)
+                        topBar(compact: true).allowsHitTesting(true)
+                            .frame(maxWidth: .infinity, alignment: .top)
+                            .scaleEffect(0.8, anchor: .top)
+                    }
+                } else {
+                    VStack(spacing: 0) {
+                        topBar(compact: false)
+                        pager(landscape: false, size: g.size)
+                    }
+                }
+            }
+        }
+        .background(Color.white.ignoresSafeArea())
+        .environment(\.colorScheme, .light)
+        .onAppear { OrientationLock.set(.allButUpsideDown) }
+        .onDisappear { OrientationLock.set(.portrait) }
+        .onChange(of: page) { _, p in savedPage = p }
+        .sheet(isPresented: $showIndex) {
+            MoshafIndex { p in page = p; showIndex = false }
+                .presentationDetents([.large])
+        }
+    }
+
+    @ViewBuilder private func pager(landscape: Bool, size: CGSize) -> some View {
+        if q.isLoaded {
+            // Right-to-left, like a printed Mushaf: the next page is to the left.
+            if landscape {
+                let pageW = min(size.width / 2, size.height * 0.9)
+                TabView(selection: spread) {
+                    ForEach(0..<302, id: \.self) { s in
+                        ZoomablePage {
+                            HStack(spacing: 0) {
+                                MushafPageView(page: s * 2 + 2).frame(width: pageW)   // left: even page
+                                MushafPageView(page: s * 2 + 1).frame(width: pageW)   // right: odd page
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .environment(\.layoutDirection, .leftToRight)
+                        .tag(s)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .environment(\.layoutDirection, .rightToLeft)
+            } else {
                 TabView(selection: $page) {
                     ForEach(1...604, id: \.self) { p in
                         ZoomablePage { MushafPageView(page: p) }
@@ -154,18 +208,13 @@ struct MoshafView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
                 .environment(\.layoutDirection, .rightToLeft)
-            } else {
+            }
+        } else {
+            VStack {
                 Spacer()
                 Text(Loc.ar ? "تعذّر تحميل نص المصحف." : "The Quran text could not be loaded.").foregroundStyle(Moshaf.muted)
                 Spacer()
             }
-        }
-        .background(Color.white.ignoresSafeArea())
-        .environment(\.colorScheme, .light)
-        .onChange(of: page) { _, p in savedPage = p }
-        .sheet(isPresented: $showIndex) {
-            MoshafIndex { p in page = p; showIndex = false }
-                .presentationDetents([.large])
         }
     }
 }

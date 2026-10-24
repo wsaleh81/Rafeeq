@@ -215,18 +215,27 @@ export function mushafHTML(isAr) {
   const s = suraOfPage(state.page);
   return `<div class="mush" id="mush"><div class="mbar"><button class="mbtn" data-act="mclose" aria-label="Done">${ICON.back}</button>
     <div class="mtitle" id="mtitle">سورة ${SURAS[s - 1].ar}</div><button class="mbtn" data-act="mindex" aria-label="${isAr ? "الفهرس" : "Surahs"}">${ICON.list}</button></div>
-    <div class="mstage" id="mstage"><div class="mpage" id="mpage"><canvas id="mcanvas"></canvas></div></div>
+    <div class="mstage" id="mstage"><div class="mpage" id="mpage"><canvas id="mcanvas2"></canvas><canvas id="mcanvas"></canvas></div></div>
     <div id="mindexhost"></div></div>`;
 }
 let rendering = 0;
 export function mushafAfter(isAr, L) {
   CTX = { isAr, L };
   const stage = document.getElementById("mstage"); if (!stage) return;
-  const fit = () => { const r = stage.getBoundingClientRect(); return [Math.max(200, r.width - 16), Math.max(300, r.height - 12)]; };
-  const paint = () => { const cv = document.getElementById("mcanvas"); if (!cv) return; const [w, h] = fit(); cv.dataset.page = String(state.page); const tk = ++rendering;
-    drawPage(cv, state.page, w, h).then(() => {}); document.getElementById("mtitle").textContent = "سورة " + SURAS[suraOfPage(state.page) - 1].ar;
-    try { localStorage.setItem("rafeeq_mpage", String(state.page)); } catch (e) {} void tk; };
-  const go = d => { const n = Math.min(604, Math.max(1, state.page + d)); if (n !== state.page) { state.page = n; resetZoom(); paint(); } };
+  const isLand = () => window.innerWidth > window.innerHeight * 1.1;
+  // landscape: two pages side by side like the open book (odd page on the right, even page on the left)
+  const fit = () => { const r = stage.getBoundingClientRect(), land = isLand(); const h = Math.max(300, r.height - 12);
+    const w = land ? Math.min((r.width - 16) / 2, h * 0.9) : Math.max(200, r.width - 16); return [w, h, land]; };
+  const paint = () => { const cv = document.getElementById("mcanvas"), cv2 = document.getElementById("mcanvas2"); if (!cv) return;
+    const [w, h, land] = fit(); document.getElementById("mush").classList.toggle("land", land);
+    if (land && state.page % 2 === 0) state.page -= 1;
+    cv.dataset.page = String(state.page); drawPage(cv, state.page, w, h);
+    if (land && state.page + 1 <= 604) { cv2.style.display = ""; cv2.dataset.page = String(state.page + 1); drawPage(cv2, state.page + 1, w, h); }
+    else { cv2.style.display = "none"; cv2.dataset.page = ""; }
+    document.getElementById("mtitle").textContent = "سورة " + SURAS[suraOfPage(state.page) - 1].ar;
+    try { localStorage.setItem("rafeeq_mpage", String(state.page)); } catch (e) {} };
+  const go = d => { const step = isLand() ? 2 : 1; const n = Math.min(604, Math.max(1, state.page + d * step)); if (n !== state.page) { state.page = n; resetZoom(); paint(); } };
+  window.onresize = () => { if (document.getElementById("mush")) paint(); };
   const mp = document.getElementById("mpage");
   const resetZoom = () => { state.zoom = 1; state.tx = 0; state.ty = 0; mp.style.transform = ""; };
   const applyZoom = () => { mp.style.transform = `translate(${state.tx}px,${state.ty}px) scale(${state.zoom})`; };
