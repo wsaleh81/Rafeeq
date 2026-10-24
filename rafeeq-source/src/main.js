@@ -329,12 +329,19 @@ function viewHome() {
   return `${title("Prayer Times", "مواقيت الصلاة")}
   <div class="datecard"><div class="dtx"><b>${greg}</b><span>${hij}</span></div>
     <div class="dnav"><button class="nbtn" data-act="day" data-d="-1">${rtl() ? I.right : I.left}</button><button class="nbtn" data-act="day" data-d="1">${rtl() ? I.left : I.right}</button></div></div>
-  <div id="bnrhost">${bannerHTML()}</div>
-  <div class="hero2" id="hero"></div>
-  ${dialHTML()}
-  ${S.preview ? `<div class="prev"><div class="cap">${L("PREVIEW HEADING")}</div><input type="range" min="0" max="359" step="1" value="${previewDeg}" id="prevSlider"></div>` : (note ? `<div class="note">${note}</div>` : "")}
-  <div class="plist2">${rows}</div>
-  <div class="foot">${ar() ? `تم الحساب على هذا الجهاز · طريقة ${L(method().name)}` : F("Calculated on this device · {0} method", L(method().name))}</div>`;
+  <div class="hsplit">
+   <div class="hleft">
+    <div id="bnrhost">${bannerHTML()}</div>
+    <div class="hero2" id="hero"></div>
+    ${dialHTML()}
+    ${S.preview ? `<div class="prev"><div class="cap">${L("PREVIEW HEADING")}</div><input type="range" min="0" max="359" step="1" value="${previewDeg}" id="prevSlider"></div>` : (note ? `<div class="note">${note}</div>` : "")}
+    <div class="coords"><span class="ci">${I.pin}</span><div><div class="cl">${ar() ? "الإحداثيات" : F("Coordinates")}</div><b>${Math.abs(p.lat).toFixed(4)}° ${p.lat >= 0 ? "N" : "S"} · ${Math.abs(p.lon).toFixed(4)}° ${p.lon >= 0 ? "E" : "W"}</b></div></div>
+   </div>
+   <div class="hright">
+    <div class="plist2">${rows}</div>
+    <div class="foot">${ar() ? `تم الحساب على هذا الجهاز · طريقة ${L(method().name)}` : F("Calculated on this device · {0} method", L(method().name))}</div>
+   </div>
+  </div>`;
 }
 function afterHome() {
   dialEls = true;

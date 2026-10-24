@@ -187,3 +187,19 @@ body.inmush #view{padding:0;overflow:hidden}
 .mush.land .mbar{position:absolute;top:0;left:0;right:0;z-index:3;padding:max(4px,env(safe-area-inset-top)) 12px 0;pointer-events:none}.mush.land .mbar>*{pointer-events:auto}.mush.land .mtitle{display:none}.mush.land .mbtn{width:34px;height:34px;opacity:.9}
 .mush.land .mstage{padding-top:0}
 body.inmush #app{max-width:none}
+
+/* home page: coordinates card, and the unfolded layout (foldable / tablet): left = compass, countdown, coordinates; right = prayer times */
+.coords{display:none;align-items:center;gap:12px;margin-top:12px;padding:0 12px;min-height:56px;background:var(--card);border-radius:20px}
+.coords .ci{width:36px;height:36px;border-radius:12px;background:var(--tile);color:var(--accent);display:flex;align-items:center;justify-content:center}
+.coords .ci svg{width:18px;height:18px}
+.coords .cl{font-size:12px;font-weight:700;color:var(--muted)}
+.coords b{font-size:16px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums}
+.hleft{display:block}
+@media (min-width:600px){
+  #app:has(.hsplit){max-width:none}
+  .coords{display:flex}
+  .hsplit{display:grid;grid-template-columns:1fr 1fr;gap:16px;direction:ltr;align-items:start}
+  .hleft,.hright{direction:ltr}
+  [dir=rtl] .hleft,[dir=rtl] .hright{direction:rtl}
+  .hright .plist2{margin-top:10px}
+}

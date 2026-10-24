@@ -17,6 +17,8 @@ struct PrayerView: View {
     var embedded = false
     /// shown right under the date (the Qibla compass on the home page)
     var middle: AnyView? = nil
+    /// unfolded phone / tablet: prayer times on the right, compass, countdown and coordinates on the left
+    var wide = false
     @EnvironmentObject var model: AppModel
     @State private var dayOffset = 0
     @State private var showPicker = false
@@ -42,27 +44,48 @@ struct PrayerView: View {
         let fmt = timeFormatter(p.timeZone)
 
         let sn = SunMath.info(lat: p.lat, lon: p.lon, date: shown)
+        let dir: LayoutDirection = AppLang.current.isRTL ? .rightToLeft : .leftToRight
+        let rowsView = VStack(spacing: 8) {
+            ForEach(Prayer.allCases) { pr in
+                let t = day[pr]
+                let isNow = dayOffset == 0 && prev?.prayer == pr && t == prev?.date
+                let isNext = dayOffset == 0 && next?.prayer == pr && t == next?.date
+                row(pr, time: t, az: nil, past: dayOffset == 0 && !isNow && (t.map { $0 < now } ?? false),
+                    isNow: isNow, isNext: isNext, fmt: fmt)
+            }
+        }
+        let footer = Text(Loc.ar ? "تم الحساب على هذا الجهاز · طريقة \(L(model.method.name))" : Loc.f("Calculated on this device · {0} method", L(model.method.name)))
+            .font(.sys(size: 12)).foregroundStyle(Theme.muted)
+            .frame(maxWidth: .infinity)
         let inner = VStack(alignment: .leading, spacing: 0) {
                 if !embedded { PageTitle(en: "Prayer Times", ar: "مواقيت الصلاة") }
                 header(shown, p)
-                banner(now: now, place: p).padding(.top, 10)
-                hero(next: next, prev: prev, now: now, fmt: fmt).padding(.top, 10)
-                if let middle { middle }
-
-                VStack(spacing: 8) {
-                    ForEach(Prayer.allCases) { pr in
-                        let t = day[pr]
-                        let isNow = dayOffset == 0 && prev?.prayer == pr && t == prev?.date
-                        let isNext = dayOffset == 0 && next?.prayer == pr && t == next?.date
-                        row(pr, time: t, az: nil, past: dayOffset == 0 && !isNow && (t.map { $0 < now } ?? false),
-                            isNow: isNow, isNext: isNext, fmt: fmt)
+                if wide {
+                    // physical sides: left = compass, countdown, coordinates; right = prayer times
+                    HStack(alignment: .top, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 0) {
+                            banner(now: now, place: p).padding(.top, 10)
+                            hero(next: next, prev: prev, now: now, fmt: fmt).padding(.top, 10)
+                            if let middle { middle }
+                            coordsCard(p)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .environment(\.layoutDirection, dir)
+                        VStack(spacing: 0) {
+                            rowsView.padding(.top, 10)
+                            footer.padding(.top, 12)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .environment(\.layoutDirection, dir)
                     }
+                    .environment(\.layoutDirection, .leftToRight)
+                } else {
+                    banner(now: now, place: p).padding(.top, 10)
+                    hero(next: next, prev: prev, now: now, fmt: fmt).padding(.top, 10)
+                    if let middle { middle }
+                    rowsView.padding(.top, 12)
+                    footer.padding(.top, 12)
                 }
-                .padding(.top, 12)
-
-                Text(Loc.ar ? "تم الحساب على هذا الجهاز · طريقة \(L(model.method.name))" : Loc.f("Calculated on this device · {0} method", L(model.method.name)))
-                    .font(.sys(size: 12)).foregroundStyle(Theme.muted)
-                    .frame(maxWidth: .infinity).padding(.top, 12)
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 110)
@@ -109,6 +132,24 @@ struct PrayerView: View {
             Image(systemName: icon).font(.sys(size: 15, weight: .bold)).foregroundStyle(Theme.muted)
                 .frame(width: 38, height: 38).background(Theme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         }.buttonStyle(.plain)
+    }
+
+    /// Latitude and longitude of the place the times are calculated for
+    private func coordsCard(_ p: Place) -> some View {
+        let lat = String(format: "%.4f° %@", abs(p.lat), p.lat >= 0 ? "N" : "S")
+        let lon = String(format: "%.4f° %@", abs(p.lon), p.lon >= 0 ? "E" : "W")
+        return HStack(spacing: 12) {
+            iconBox("location.north.line.fill", fill: Theme.mint.opacity(0.16), fg: Theme.mint)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(Loc.ar ? "الإحداثيات" : L("Coordinates")).font(.sys(size: 12, weight: .bold)).foregroundStyle(Theme.muted)
+                Text("\(lat)  ·  \(lon)").font(.sys(size: 16, weight: .heavy, design: Theme.design)).monospacedDigit()
+                    .foregroundStyle(Theme.ink).lineLimit(1).minimumScaleFactor(0.7)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 12).frame(minHeight: 56)
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .padding(.top, 12)
     }
 
     // MARK: location banner

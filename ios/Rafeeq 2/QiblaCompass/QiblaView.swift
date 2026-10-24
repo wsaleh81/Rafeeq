@@ -261,12 +261,14 @@ struct QiblaView: View {
 /// Main page: the Qibla compass on top, then today's prayer times.
 struct HomeView: View {
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                PageTitle(en: "Prayer Times", ar: "مواقيت الصلاة").padding(.horizontal, 20)
-                PrayerView(embedded: true, middle: AnyView(QiblaView(embedded: true)))
+        GeometryReader { g in
+            ScrollView {
+                VStack(spacing: 0) {
+                    PageTitle(en: "Prayer Times", ar: "مواقيت الصلاة").padding(.horizontal, 20)
+                    PrayerView(embedded: true, wide: g.size.width >= 600, middle: AnyView(QiblaView(embedded: true)))
+                }
             }
+            .scrollIndicators(.hidden)
         }
-        .scrollIndicators(.hidden)
     }
 }
