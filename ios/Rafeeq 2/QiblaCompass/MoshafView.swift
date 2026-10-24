@@ -179,7 +179,7 @@ struct MoshafView: View {
 
     @ViewBuilder private func pager(landscape: Bool, size: CGSize) -> some View {
         if q.isLoaded {
-            BookPager(page: $page, landscape: landscape, size: size)
+            GeometryReader { p in BookPager(page: $page, landscape: landscape, size: p.size) }   // its own size, below the top strip
         } else {
             VStack {
                 Spacer()
