@@ -153,11 +153,10 @@ struct MoshafView: View {
             let landscape = g.size.width > g.size.height
             Group {
                 if landscape {
-                    ZStack(alignment: .top) {
-                        pager(landscape: true, size: g.size)
-                        topBar(compact: true).allowsHitTesting(true)
-                            .frame(maxWidth: .infinity, alignment: .top)
-                            .scaleEffect(0.8, anchor: .top)
+                    // the pages sit below the white strip that holds the buttons
+                    VStack(spacing: 0) {
+                        topBar(compact: true)
+                        pager(landscape: true, size: CGSize(width: g.size.width, height: g.size.height - 44))
                     }
                 } else {
                     VStack(spacing: 0) {
@@ -192,6 +191,7 @@ struct MoshafView: View {
                             }
                             .frame(maxWidth: .infinity)
                         }
+                        .pageTurn()
                         .environment(\.layoutDirection, .leftToRight)
                         .tag(s)
                     }
@@ -202,6 +202,7 @@ struct MoshafView: View {
                 TabView(selection: $page) {
                     ForEach(1...604, id: \.self) { p in
                         ZoomablePage { MushafPageView(page: p) }
+                            .pageTurn()
                             .environment(\.layoutDirection, .leftToRight)
                             .tag(p)
                     }
@@ -215,6 +216,23 @@ struct MoshafView: View {
                 Text(Loc.ar ? "تعذّر تحميل نص المصحف." : "The Quran text could not be loaded.").foregroundStyle(Moshaf.muted)
                 Spacer()
             }
+        }
+    }
+}
+
+// MARK: page turn
+
+extension View {
+    /// Book effect: the page being turned folds away around its spine edge, with a soft shadow, while the next one slides in.
+    func pageTurn() -> some View {
+        self.visualEffect { content, proxy in
+            let w = max(proxy.size.width, 1)
+            let x = proxy.frame(in: .global).minX
+            let leaving = min(max(-x / w, 0), 1)      // 0 = on screen, 1 = fully turned
+            return content
+                .rotation3DEffect(.degrees(-62 * leaving), axis: (x: 0, y: 1, z: 0), anchor: .trailing, perspective: 0.5)
+                .brightness(-0.18 * leaving)
+                .offset(x: x < 0 ? -x * 0.35 : 0)      // the turning page lags a little, like paper
         }
     }
 }
