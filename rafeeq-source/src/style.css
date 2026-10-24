@@ -101,7 +101,7 @@ select{font:inherit;color:var(--deep);background:var(--tile);border:0;border-rad
 .sw1.sel{border-color:var(--accent)}
 .step{display:flex;align-items:center;gap:6px}.step button{width:36px;height:36px;border-radius:50%;background:var(--tile);font-size:1.3rem;font-weight:700;color:var(--deep)}.step b{min-width:34px;text-align:center;font-variant-numeric:tabular-nums}
 /* tabs */
-#tabs{display:flex;background:color-mix(in srgb,var(--card) 92%,transparent);border-top:1px solid var(--line);padding:6px 4px max(6px,env(safe-area-inset-bottom));backdrop-filter:blur(14px)}
+#tabs{display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px 4px max(6px,env(safe-area-inset-bottom))}
 .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 0;color:var(--muted);font-size:.65rem;font-weight:600;min-width:0}
 .tab svg{width:24px;height:24px}.tab span:last-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .tab.sel{color:var(--deep)}
