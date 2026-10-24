@@ -265,7 +265,7 @@ struct HomeView: View {
             ScrollView {
                 VStack(spacing: 0) {
                     PageTitle(en: "Prayer Times", ar: "مواقيت الصلاة").padding(.horizontal, 20)
-                    PrayerView(embedded: true, wide: g.size.width >= 600, middle: AnyView(QiblaView(embedded: true)))
+                    PrayerView(embedded: true, middle: AnyView(QiblaView(embedded: true)), wide: g.size.width >= 600)
                 }
             }
             .scrollIndicators(.hidden)
