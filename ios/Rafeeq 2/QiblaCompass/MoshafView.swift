@@ -215,14 +215,13 @@ private struct BookPager: UIViewControllerRepresentable {
 
     func makeUIViewController(context: Context) -> UIPageViewController {
         let c = context.coordinator
-        let spine: UIPageViewController.SpineLocation = landscape ? .mid : .min
+        let spine: UIPageViewController.SpineLocation = landscape ? .mid : .max
         let pvc = UIPageViewController(transitionStyle: .pageCurl, navigationOrientation: .horizontal,
                                        options: [.spineLocation: NSNumber(value: spine.rawValue)])
         pvc.isDoubleSided = landscape
         pvc.dataSource = c
         pvc.delegate = c
         pvc.view.backgroundColor = .white
-        pvc.view.semanticContentAttribute = .forceRightToLeft      // Arabic book: spine on the right, turn left to right
         c.landscape = landscape; c.pw = pw; c.ph = ph
         pvc.setViewControllers(c.controllers(for: page), direction: .forward, animated: false)
         return pvc
@@ -260,18 +259,19 @@ private struct BookPager: UIViewControllerRepresentable {
         func controllers(for page: Int) -> [UIViewController] {
             if landscape {
                 let b = ((page - 1) / 2) * 2 + 1
-                return [host(b), host(min(b + 1, 604))]
+                return [host(min(b + 1, 604)), host(b)]   // left: even page, right: odd page
             }
             return [host(page)]
         }
 
         func pageViewController(_ p: UIPageViewController, viewControllerBefore vc: UIViewController) -> UIViewController? {
-            guard let n = (vc as? PageHost)?.number, n > 1 else { return nil }
-            return host(n - 1)
-        }
-        func pageViewController(_ p: UIPageViewController, viewControllerAfter vc: UIViewController) -> UIViewController? {
+            // the curl runs left to right for the NEXT page (Arabic book), so "before" in curl terms is the next page
             guard let n = (vc as? PageHost)?.number, n < 604 else { return nil }
             return host(n + 1)
+        }
+        func pageViewController(_ p: UIPageViewController, viewControllerAfter vc: UIViewController) -> UIViewController? {
+            guard let n = (vc as? PageHost)?.number, n > 1 else { return nil }
+            return host(n - 1)
         }
         func pageViewController(_ p: UIPageViewController, didFinishAnimating finished: Bool,
                                 previousViewControllers: [UIViewController], transitionCompleted completed: Bool) {
