@@ -179,7 +179,11 @@ struct MoshafView: View {
 
     @ViewBuilder private func pager(landscape: Bool, size: CGSize) -> some View {
         if q.isLoaded {
-            GeometryReader { p in BookPager(page: $page, landscape: landscape, size: p.size) }   // its own size, below the top strip
+            GeometryReader { p in
+                BookPager(page: $page, landscape: landscape, size: p.size)
+                    .frame(width: p.size.width, height: p.size.height)
+                    .id(landscape)
+            }   // its own size, below the top strip
         } else {
             VStack {
                 Spacer()
@@ -192,108 +196,88 @@ struct MoshafView: View {
 
 // MARK: page turn
 
-/// A page that really turns, like a book. Landscape: the open book, the left page lifts, swings over the spine
-/// and lands on the right (next pages). Portrait: the page lifts off from the left edge and shows the next one.
-private struct BookPager: View {
+/// The real page curl of iOS (the one in Apple Books), set up as a right-to-left book: pages turn from left to right.
+/// Landscape: the open book, two pages with the spine in the middle (odd page on the right, even on the left).
+/// Portrait: one page with the spine on the right edge.
+private struct BookPager: UIViewControllerRepresentable {
     @Binding var page: Int
     let landscape: Bool
     let size: CGSize
-    /// -1...1: positive = turning forward (drag left to right), negative = turning back
-    @State private var t: CGFloat = 0
 
     private var ph: CGFloat { size.height }
     private var pw: CGFloat { landscape ? min(size.width / 2, ph * 0.9) : size.width }
-    private var step: Int { landscape ? 2 : 1 }
-    /// first page of the current view: the odd (right) page in landscape
-    private var base: Int { landscape ? ((page - 1) / 2) * 2 + 1 : page }
 
-    private func face(_ n: Int) -> some View {
-        Group {
-            if (1...604).contains(n) { MushafPageView(page: n) } else { Moshaf.paper }
+    final class PageHost: UIHostingController<AnyView> {
+        var number = 1
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIViewController(context: Context) -> UIPageViewController {
+        let c = context.coordinator
+        let spine: UIPageViewController.SpineLocation = landscape ? .mid : .min
+        let pvc = UIPageViewController(transitionStyle: .pageCurl, navigationOrientation: .horizontal,
+                                       options: [.spineLocation: NSNumber(value: spine.rawValue)])
+        pvc.isDoubleSided = landscape
+        pvc.dataSource = c
+        pvc.delegate = c
+        pvc.view.backgroundColor = .white
+        pvc.view.semanticContentAttribute = .forceRightToLeft      // Arabic book: spine on the right, turn left to right
+        c.landscape = landscape; c.pw = pw; c.ph = ph
+        pvc.setViewControllers(c.controllers(for: page), direction: .forward, animated: false)
+        return pvc
+    }
+
+    func updateUIViewController(_ pvc: UIPageViewController, context: Context) {
+        let c = context.coordinator
+        c.parent = self; c.pw = pw; c.ph = ph
+        let shown = (pvc.viewControllers ?? []).compactMap { ($0 as? PageHost)?.number }.min() ?? 0
+        let target = landscape ? ((page - 1) / 2) * 2 + 1 : page
+        if shown != target {      // jumped from the index
+            pvc.setViewControllers(c.controllers(for: page), direction: target > shown ? .forward : .reverse, animated: false)
         }
-        .frame(width: pw, height: ph)
-        .environment(\.layoutDirection, .leftToRight)
     }
 
-    private func canTurn(_ forward: Bool) -> Bool {
-        forward ? base + step <= 604 : base - step >= 1
+    func sizeThatFits(_ proposal: ProposedViewSize, uiViewController: UIPageViewController, context: Context) -> CGSize? {
+        CGSize(width: landscape ? pw * 2 : pw, height: ph)
     }
 
-    var body: some View {
-        let p = abs(t)
-        let forward = t > 0
-        ZStack {
-            if landscape { landscapeBook(p: p, forward: forward) } else { portraitBook(p: p, forward: forward) }
+    final class Coordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate {
+        var parent: BookPager
+        var landscape = false, pw: CGFloat = 0, ph: CGFloat = 0
+        init(_ p: BookPager) { parent = p }
+
+        private func host(_ n: Int) -> PageHost {
+            let h = PageHost(rootView: AnyView(
+                MushafPageView(page: n).environment(\.layoutDirection, .leftToRight)
+                    .background(Color.white)
+            ))
+            h.number = n
+            h.view.backgroundColor = .white
+            return h
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .contentShape(Rectangle())
-        .gesture(
-            DragGesture(minimumDistance: 12)
-                .onChanged { v in
-                    let fw = v.translation.width > 0
-                    guard canTurn(fw) else { t = 0; return }
-                    let span = landscape ? size.width * 0.5 : size.width * 0.8
-                    t = (fw ? 1 : -1) * min(abs(v.translation.width) / span, 1)
-                }
-                .onEnded { v in
-                    let fw = t > 0
-                    let flick = abs(v.predictedEndTranslation.width) > size.width * 0.5
-                    if t != 0, abs(t) > 0.35 || flick {
-                        withAnimation(.easeOut(duration: 0.28)) { t = fw ? 1 : -1 } completion: {
-                            var tx = Transaction(); tx.disablesAnimations = true
-                            withTransaction(tx) {
-                                page = fw ? min(base + step, 604) : max(base - step, 1)
-                                t = 0
-                            }
-                        }
-                    } else {
-                        withAnimation(.easeOut(duration: 0.22)) { t = 0 }
-                    }
-                }
-        )
-    }
 
-    // open book: left page = base+1, right page = base
-    private func landscapeBook(p: CGFloat, forward: Bool) -> some View {
-        let b = base
-        // pages lying under the leaf
-        let left = p == 0 ? b + 1 : (forward ? b + 3 : b + 1)
-        let right = p == 0 ? b : (forward ? b : b - 2)
-        // the leaf: angle -180 (flat on the left) ... 0 (flat on the right)
-        let a: Double = forward ? Double(-180 + 180 * p) : Double(-180 * p)
-        let faceR = forward ? b + 2 : b          // seen while the leaf is on the right half
-        let faceL = forward ? b + 1 : b - 1      // seen while the leaf is on the left half
-        return ZStack {
-            HStack(spacing: 0) { face(left); face(right) }
-            if p > 0 {
-                Group {
-                    if a > -90 { face(faceR) } else { face(faceL).scaleEffect(x: -1) }
-                }
-                .overlay(Color.black.opacity(0.30 * abs(sin(a * .pi / 180))).allowsHitTesting(false))
-                .rotation3DEffect(.degrees(a), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.35)
-                .shadow(color: .black.opacity(0.35 * abs(sin(a * .pi / 180))), radius: 12, x: a > -90 ? 6 : -6)
-                .offset(x: pw / 2)
+        func controllers(for page: Int) -> [UIViewController] {
+            if landscape {
+                let b = ((page - 1) / 2) * 2 + 1
+                return [host(b), host(min(b + 1, 604))]
             }
+            return [host(page)]
         }
-        .frame(width: pw * 2, height: ph)
-    }
 
-    // single page: the page lifts off from its left edge
-    private func portraitBook(p: CGFloat, forward: Bool) -> some View {
-        let b = base
-        return ZStack {
-            face(p == 0 ? b : (forward ? b + 1 : b))
-            if p > 0 {
-                // forward: the current page lifts (0 -> 90deg); back: the previous page comes down (90 -> 0)
-                let a: Double = forward ? 90 * Double(p) : 90 * Double(1 - p)
-                let n = forward ? b : b - 1
-                face(n)
-                    .overlay(Color.black.opacity(0.25 * sin(a * .pi / 180)).allowsHitTesting(false))
-                    .rotation3DEffect(.degrees(a), axis: (x: 0, y: 1, z: 0), anchor: .trailing, perspective: 0.35)
-                    .shadow(color: .black.opacity(0.3 * sin(a * .pi / 180)), radius: 10, x: -6)
-            }
+        func pageViewController(_ p: UIPageViewController, viewControllerBefore vc: UIViewController) -> UIViewController? {
+            guard let n = (vc as? PageHost)?.number, n > 1 else { return nil }
+            return host(n - 1)
         }
-        .frame(width: pw, height: ph)
+        func pageViewController(_ p: UIPageViewController, viewControllerAfter vc: UIViewController) -> UIViewController? {
+            guard let n = (vc as? PageHost)?.number, n < 604 else { return nil }
+            return host(n + 1)
+        }
+        func pageViewController(_ p: UIPageViewController, didFinishAnimating finished: Bool,
+                                previousViewControllers: [UIViewController], transitionCompleted completed: Bool) {
+            guard completed, let n = (p.viewControllers ?? []).compactMap({ ($0 as? PageHost)?.number }).min() else { return }
+            parent.page = n
+        }
     }
 }
 
