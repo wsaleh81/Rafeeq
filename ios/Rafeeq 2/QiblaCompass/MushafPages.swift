@@ -717,8 +717,8 @@ struct MushafPageView: View {
                 // tabs on the top band: juz on the right, then the surahs
                 ForEach(Array(tabs.enumerated()), id: \.offset) { i, t in
                     let slot = W - 34 - tabW / 2 - CGFloat(i) * (W - 68 - tabW) / CGFloat(max(1, tabs.count - 1))
-                    CartoucheLabel(glyph: t, width: tabW, height: 36)
-                        .position(x: tabs.count == 1 ? W / 2 : slot, y: max(bandY, 19))
+                    CartoucheLabel(glyph: t, width: tabW, height: 26)
+                        .position(x: tabs.count == 1 ? W / 2 : slot, y: bandY)
                 }
                 CartoucheLabel(text: Moshaf.arabicDigits(page), font: .systemFont(ofSize: 14, weight: .bold), width: 64, height: 24)
                     .position(x: W / 2, y: H - bandY)

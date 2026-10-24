@@ -179,37 +179,7 @@ struct MoshafView: View {
 
     @ViewBuilder private func pager(landscape: Bool, size: CGSize) -> some View {
         if q.isLoaded {
-            // Right-to-left, like a printed Mushaf: the next page is to the left.
-            if landscape {
-                let pageW = min(size.width / 2, size.height * 0.9)
-                TabView(selection: spread) {
-                    ForEach(0..<302, id: \.self) { s in
-                        ZoomablePage {
-                            HStack(spacing: 0) {
-                                MushafPageView(page: s * 2 + 2).frame(width: pageW)   // left: even page
-                                MushafPageView(page: s * 2 + 1).frame(width: pageW)   // right: odd page
-                            }
-                            .frame(maxWidth: .infinity)
-                        }
-                        .pageTurn()
-                        .environment(\.layoutDirection, .leftToRight)
-                        .tag(s)
-                    }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .environment(\.layoutDirection, .rightToLeft)
-            } else {
-                TabView(selection: $page) {
-                    ForEach(1...604, id: \.self) { p in
-                        ZoomablePage { MushafPageView(page: p) }
-                            .pageTurn()
-                            .environment(\.layoutDirection, .leftToRight)
-                            .tag(p)
-                    }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .environment(\.layoutDirection, .rightToLeft)
-            }
+            BookPager(page: $page, landscape: landscape, size: size)
         } else {
             VStack {
                 Spacer()
@@ -222,18 +192,108 @@ struct MoshafView: View {
 
 // MARK: page turn
 
-extension View {
-    /// Book effect: the page being turned folds away around its spine edge, with a soft shadow, while the next one slides in.
-    func pageTurn() -> some View {
-        self.visualEffect { content, proxy in
-            let w = max(proxy.size.width, 1)
-            let x = proxy.frame(in: .global).minX
-            let leaving = min(max(-x / w, 0), 1)      // 0 = on screen, 1 = fully turned
-            return content
-                .rotation3DEffect(.degrees(-62 * leaving), axis: (x: 0, y: 1, z: 0), anchor: .trailing, perspective: 0.5)
-                .brightness(-0.18 * leaving)
-                .offset(x: x < 0 ? -x * 0.35 : 0)      // the turning page lags a little, like paper
+/// A page that really turns, like a book. Landscape: the open book, the left page lifts, swings over the spine
+/// and lands on the right (next pages). Portrait: the page lifts off from the left edge and shows the next one.
+private struct BookPager: View {
+    @Binding var page: Int
+    let landscape: Bool
+    let size: CGSize
+    /// -1...1: positive = turning forward (drag left to right), negative = turning back
+    @State private var t: CGFloat = 0
+
+    private var ph: CGFloat { size.height }
+    private var pw: CGFloat { landscape ? min(size.width / 2, ph * 0.9) : size.width }
+    private var step: Int { landscape ? 2 : 1 }
+    /// first page of the current view: the odd (right) page in landscape
+    private var base: Int { landscape ? ((page - 1) / 2) * 2 + 1 : page }
+
+    private func face(_ n: Int) -> some View {
+        Group {
+            if (1...604).contains(n) { MushafPageView(page: n) } else { Moshaf.paper }
         }
+        .frame(width: pw, height: ph)
+        .environment(\.layoutDirection, .leftToRight)
+    }
+
+    private func canTurn(_ forward: Bool) -> Bool {
+        forward ? base + step <= 604 : base - step >= 1
+    }
+
+    var body: some View {
+        let p = abs(t)
+        let forward = t > 0
+        ZStack {
+            if landscape { landscapeBook(p: p, forward: forward) } else { portraitBook(p: p, forward: forward) }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 12)
+                .onChanged { v in
+                    let fw = v.translation.width > 0
+                    guard canTurn(fw) else { t = 0; return }
+                    let span = landscape ? size.width * 0.5 : size.width * 0.8
+                    t = (fw ? 1 : -1) * min(abs(v.translation.width) / span, 1)
+                }
+                .onEnded { v in
+                    let fw = t > 0
+                    let flick = abs(v.predictedEndTranslation.width) > size.width * 0.5
+                    if t != 0, abs(t) > 0.35 || flick {
+                        withAnimation(.easeOut(duration: 0.28)) { t = fw ? 1 : -1 } completion: {
+                            var tx = Transaction(); tx.disablesAnimations = true
+                            withTransaction(tx) {
+                                page = fw ? min(base + step, 604) : max(base - step, 1)
+                                t = 0
+                            }
+                        }
+                    } else {
+                        withAnimation(.easeOut(duration: 0.22)) { t = 0 }
+                    }
+                }
+        )
+    }
+
+    // open book: left page = base+1, right page = base
+    private func landscapeBook(p: CGFloat, forward: Bool) -> some View {
+        let b = base
+        // pages lying under the leaf
+        let left = p == 0 ? b + 1 : (forward ? b + 3 : b + 1)
+        let right = p == 0 ? b : (forward ? b : b - 2)
+        // the leaf: angle -180 (flat on the left) ... 0 (flat on the right)
+        let a: Double = forward ? Double(-180 + 180 * p) : Double(-180 * p)
+        let faceR = forward ? b + 2 : b          // seen while the leaf is on the right half
+        let faceL = forward ? b + 1 : b - 1      // seen while the leaf is on the left half
+        return ZStack {
+            HStack(spacing: 0) { face(left); face(right) }
+            if p > 0 {
+                Group {
+                    if a > -90 { face(faceR) } else { face(faceL).scaleEffect(x: -1) }
+                }
+                .overlay(Color.black.opacity(0.30 * abs(sin(a * .pi / 180))).allowsHitTesting(false))
+                .rotation3DEffect(.degrees(a), axis: (x: 0, y: 1, z: 0), anchor: .leading, perspective: 0.35)
+                .shadow(color: .black.opacity(0.35 * abs(sin(a * .pi / 180))), radius: 12, x: a > -90 ? 6 : -6)
+                .offset(x: pw / 2)
+            }
+        }
+        .frame(width: pw * 2, height: ph)
+    }
+
+    // single page: the page lifts off from its left edge
+    private func portraitBook(p: CGFloat, forward: Bool) -> some View {
+        let b = base
+        return ZStack {
+            face(p == 0 ? b : (forward ? b + 1 : b))
+            if p > 0 {
+                // forward: the current page lifts (0 -> 90deg); back: the previous page comes down (90 -> 0)
+                let a: Double = forward ? 90 * Double(p) : 90 * Double(1 - p)
+                let n = forward ? b : b - 1
+                face(n)
+                    .overlay(Color.black.opacity(0.25 * sin(a * .pi / 180)).allowsHitTesting(false))
+                    .rotation3DEffect(.degrees(a), axis: (x: 0, y: 1, z: 0), anchor: .trailing, perspective: 0.35)
+                    .shadow(color: .black.opacity(0.3 * sin(a * .pi / 180)), radius: 10, x: -6)
+            }
+        }
+        .frame(width: pw, height: ph)
     }
 }
 
