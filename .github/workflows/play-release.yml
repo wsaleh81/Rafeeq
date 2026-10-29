@@ -43,12 +43,12 @@ jobs:
           RIHAL_KEYSTORE_PASSWORD: ${{ secrets.RIHAL_KEYSTORE_PASSWORD }}
           RIHAL_KEY_ALIAS: ${{ secrets.RIHAL_KEY_ALIAS }}
           RIHAL_KEY_PASSWORD: ${{ secrets.RIHAL_KEY_PASSWORD }}
-        run: chmod +x gradlew && ./gradlew bundleRelease assembleRelease --no-daemon
+        run: chmod +x gradlew && ./gradlew bundleRelease assembleRelease assembleDebug --no-daemon
       - name: Collect files
         run: |
           mkdir -p out
           cp android/app/build/outputs/bundle/release/app-release.aab "out/Rihal-$VERSION_CODE.aab"
-          cp android/app/build/outputs/apk/release/app-release*.apk "out/Rihal-$VERSION_CODE.apk"
+          cp android/app/build/outputs/apk/debug/app-debug.apk "out/Rihal-$VERSION_CODE-test.apk"
           ls -la out
       - uses: actions/upload-artifact@v4
         with:
