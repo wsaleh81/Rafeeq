@@ -323,6 +323,7 @@ function target() { return S.preview ? previewDeg : sensor.heading; }
 function updateDial() {
   const root = $("#hdial"); if (!root) return;
   const t = target(), q = qiblaDeg();
+  if (t != null && !S.preview) { const n = $(".hleft > .note"); if (n && !n.querySelector("button")) n.remove(); }
   if (t != null) {
     // Low-pass smoothing plus a small dead band, so sensor noise does not keep the dial moving.
     const step = diff(t, shown);
