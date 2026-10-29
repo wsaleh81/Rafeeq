@@ -63,7 +63,6 @@ export function classicSVG(T, themed) {
    <ellipse cx="150" cy="126" rx="21" ry="9" fill="#fff" fill-opacity=".35"/>
    <g id="darrow" transform="translate(150 150)">${arrowSVG(26, 80, L.inner, L.accentLight, T.ok)}</g>
    <polygon points="139,-10 161,-10 150,8" fill="#fff" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
-   <text id="dkm" x="150" y="${150 + 0.605 * 300 - 150 + 0}" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="#0A1430"></text>
   </svg>`;
 }
 
@@ -80,13 +79,12 @@ export function ringsSVG(T) {
      <rect x="-6.75" y="-7.5" width="13.5" height="15" rx="2" fill="${T.night}"/><rect x="-6.75" y="-4.5" width="13.5" height="2" fill="${T.sun}"/>
    </g>
    <polygon id="rtri" points="-9,0 9,0 0,15" transform="translate(150 -3)" fill="${T.ink}"/>
-   <text id="dkm" x="150" y="192" text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="800" fill="${T.ink}"></text>
   </svg>`;
 }
 
 const set = (el, a, v) => el && el.setAttribute(a, v);
-// shown = smoothed heading, q = Qibla bearing, aligned = facing the Qibla, tint = arrow colour for Rings (zone), km = label
-export function updateDial(root, T, shown, q, aligned, tint, km) {
+// shown = smoothed heading, q = Qibla bearing, aligned = facing the Qibla, tint = arrow colour for Rings (zone)
+export function updateDial(root, T, shown, q, aligned, tint) {
   if (!root) return;
   const svg = root.querySelector("svg"); if (!svg) return;
   const g = id => svg.querySelector("#" + id);
@@ -104,7 +102,6 @@ export function updateDial(root, T, shown, q, aligned, tint, km) {
     set(g("rring"), "stroke", aligned ? T.ok : "transparent");
     set(g("rtri"), "fill", aligned ? T.ok : T.ink);
   }
-  const t = g("dkm"); if (t) t.textContent = km || "";
 }
 
 // sun path for today (radius 70 on the rotating card)

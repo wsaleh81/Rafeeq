@@ -324,20 +324,42 @@ function weatherBlock() {
 
 function zoneHex(d) { if (d == null) return T.muted; const a = Math.abs(d); return a > 45 ? "#FF5A5F" : a > 15 ? "#FFC93C" : "#3DD68C"; }
 function target() { return S.preview ? previewDeg : sensor.heading; }
+// Heading shown on the dial follows the sensor like the iPhone app: ignore changes under 1 degree,
+// then ease to the new heading over about 0.18 s.
+let goal = null, animating = false;
 function updateDial() {
+  const root = $("#hdial"); if (!root) { animating = false; return; }
+  const t = target();
+  if (t != null && !S.preview) { const n = $(".hleft > .note:not(.calib)"); if (n && !n.querySelector("button")) n.remove(); }
+  if (t != null && (goal == null || S.preview || Math.abs(diff(t, goal)) >= 1)) goal = t;
+  calibNote();
+  if (goal != null && !animating) { animating = true; requestAnimationFrame(animateDial); }
+  drawDial();
+}
+function animateDial() {
+  if (!$("#hdial") || goal == null) { animating = false; return; }
+  const step = diff(goal, shown);
+  if (Math.abs(step) < 0.05) { shown = norm(goal); animating = false; drawDial(); return; }
+  shown = norm(shown + step * 0.22);
+  drawDial();
+  requestAnimationFrame(animateDial);
+}
+function drawDial() {
   const root = $("#hdial"); if (!root) return;
   const t = target(), q = qiblaDeg();
-  if (t != null && !S.preview) { const n = $(".hleft > .note"); if (n && !n.querySelector("button")) n.remove(); }
-  if (t != null) {
-    // Low-pass smoothing plus a small dead band, so sensor noise does not keep the dial moving.
-    const step = diff(t, shown);
-    if (Math.abs(step) > 0.4) shown = norm(shown + step * 0.25);
-  }
   const d = t == null ? null : diff(q, t), aligned = d != null && Math.abs(d) <= 3;
-  const km = Math.round(Qibla.distanceKm(S.place.lat, S.place.lon));
-  dialUpdate(root, T, shown, q, aligned, S.compass === "rings" ? zoneHex(d) : null, `${km.toLocaleString("en-US")} ${ar() ? "كم" : "km"}`);
+  dialUpdate(root, T, shown, q, aligned, S.compass === "rings" ? zoneHex(d) : null);
   if (aligned && !wasAligned && navigator.vibrate) navigator.vibrate(40);
   wasAligned = aligned;
+}
+// Android reports magnetometer accuracy: 0 unreliable, 1 low. Ask for a figure-of-eight, like the iPhone app.
+function calibNote() {
+  const need = nativeOn && !S.preview && sensor.accuracy != null && sensor.accuracy <= 1;
+  let n = $(".hleft > .note.calib");
+  if (need && !n) {
+    const host = $(".hleft .hdial"); if (!host) return;
+    host.insertAdjacentHTML("afterend", `<div class="note calib">${L("Compass needs calibration. Move your phone in a figure of eight.")}</div>`);
+  } else if (!need && n) n.remove();
 }
 function dialHTML() {
   const rings = S.compass === "rings";

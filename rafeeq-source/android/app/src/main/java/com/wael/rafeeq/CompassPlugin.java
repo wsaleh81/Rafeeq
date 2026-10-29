@@ -28,8 +28,6 @@ public class CompassPlugin extends Plugin implements SensorEventListener {
     private boolean hasSmooth = false;
     private long lastEmit = 0;
     private final float[] R = new float[9];
-    private final float[] R2 = new float[9];
-    private final float[] ori = new float[3];
 
     @PluginMethod
     public void start(PluginCall call) {
@@ -83,19 +81,26 @@ public class CompassPlugin extends Plugin implements SensorEventListener {
     public void onSensorChanged(SensorEvent e) {
         if (e.sensor.getType() != Sensor.TYPE_ROTATION_VECTOR) return;
         SensorManager.getRotationMatrixFromVector(R, e.values);
-        float[] m = R;
-        // Phone held upright (screen facing the user): report where the back of the phone points.
-        if (Math.abs(R[8]) < 0.6f) {
-            SensorManager.remapCoordinateSystem(R, SensorManager.AXIS_X, SensorManager.AXIS_Z, R2);
-            m = R2;
-        }
-        SensorManager.getOrientation(m, ori);
-        double az = Math.toDegrees(ori[0]) + declination;
+        // R maps device axes to world axes (x = east, y = north, z = up).
+        // Heading = horizontal direction of (top edge - screen normal). This is the top of the phone
+        // when it lies flat and the back camera direction when it is upright, and it changes smoothly
+        // in between (no jump when tilting), like the iPhone's heading.
+        double east = R[1] - R[2];
+        double north = R[4] - R[5];
+        if (Math.hypot(east, north) < 1e-3) return;
+        double az = Math.toDegrees(Math.atan2(east, north)) + declination;
         double rad = Math.toRadians(az);
-        double a = hasSmooth ? 0.18 : 1.0;
-        sx = hasSmooth ? sx + a * (Math.cos(rad) - sx) : Math.cos(rad);
-        sy = hasSmooth ? sy + a * (Math.sin(rad) - sy) : Math.sin(rad);
-        hasSmooth = true;
+        double cx = Math.cos(rad), cy = Math.sin(rad);
+        if (!hasSmooth) {
+            sx = cx; sy = cy; hasSmooth = true;
+        } else {
+            // Adaptive low-pass: heavy filtering for sensor noise, fast follow for a real turn.
+            double cur = Math.toDegrees(Math.atan2(sy, sx));
+            double d = Math.abs(((az - cur) % 360 + 540) % 360 - 180);
+            double a = d > 20 ? 0.5 : d > 6 ? 0.25 : 0.08;
+            sx += a * (cx - sx);
+            sy += a * (cy - sy);
+        }
         long now = System.currentTimeMillis();
         if (now - lastEmit < 33) return;
         lastEmit = now;
@@ -109,6 +114,7 @@ public class CompassPlugin extends Plugin implements SensorEventListener {
 
     @Override
     public void onAccuracyChanged(Sensor s, int acc) {
+        // SENSOR_STATUS_UNRELIABLE 0, LOW 1, MEDIUM 2, HIGH 3 (magnetometer calibration)
         accuracy = acc;
     }
 }
