@@ -116,14 +116,20 @@ struct QiblaView: View {
         (aligned ? "checkmark" : (delta ?? 1) < 0 ? "arrow.counterclockwise" : "arrow.clockwise", zone)
     }
 
-    @ViewBuilder private var dial: some View {
-        if compassStyle == "rings" {
-            RingsDial(heading: shown, qibla: model.qibla, aligned: aligned, tint: embedded ? zone : nil)
-        } else if Theme.isClassic {
-            ClassicDial(heading: shown, qibla: model.qibla, sun: sun, turn: nil, themed: compassStyle != "classicGrey", aligned: aligned)
-        } else {
-            CompassDial(heading: shown, qibla: model.qibla, aligned: aligned, sun: sun, turn: embedded ? turnIcon : nil)
+    // A compass is a physical map: east is always clockwise from north. Arabic and Urdu switch the
+    // app to right-to-left, which mirrors the dial's drawing (Qibla, sun and degrees all showed
+    // 360 - true), so the dial is always drawn left-to-right, like the Mushaf pages.
+    private var dial: some View {
+        Group {
+            if compassStyle == "rings" {
+                RingsDial(heading: shown, qibla: model.qibla, aligned: aligned, tint: embedded ? zone : nil)
+            } else if Theme.isClassic {
+                ClassicDial(heading: shown, qibla: model.qibla, sun: sun, turn: nil, themed: compassStyle != "classicGrey", aligned: aligned)
+            } else {
+                CompassDial(heading: shown, qibla: model.qibla, aligned: aligned, sun: sun, turn: embedded ? turnIcon : nil)
+            }
         }
+        .environment(\.layoutDirection, .leftToRight)
     }
 
     @AppStorage("tempUnit") private var tempUnit = "c"
