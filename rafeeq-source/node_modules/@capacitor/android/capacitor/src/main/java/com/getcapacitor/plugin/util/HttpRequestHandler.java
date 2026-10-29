@@ -168,8 +168,8 @@ public class HttpRequestHandler {
                 "://" +
                 uri.getAuthority() +
                 uri.getPath() +
-                ((!urlQuery.equals("")) ? "?" + urlQuery : "") +
-                ((uri.getFragment() != null) ? uri.getFragment() : "");
+                (!urlQuery.equals("") ? "?" + urlQuery : "") +
+                (uri.getFragment() != null ? uri.getFragment() : "");
             this.url = new URL(unEncodedUrlString);
 
             return this;
@@ -398,6 +398,19 @@ public class HttpRequestHandler {
 
         boolean isHttpMutate = method.equals("DELETE") || method.equals("PATCH") || method.equals("POST") || method.equals("PUT");
 
+        // a workaround for the following android web view issue:
+        // https://issues.chromium.org/issues/40450316
+        // x-cap-user-agent contains the user agent set in JavaScript
+        String userAgentValue = headers.getString("x-cap-user-agent");
+        if (userAgentValue != null) {
+            headers.put("User-Agent", userAgentValue);
+        }
+        headers.remove("x-cap-user-agent");
+
+        if (!headers.has("User-Agent") && !headers.has("user-agent")) {
+            headers.put("User-Agent", bridge.getConfig().getOverriddenUserAgentString());
+        }
+
         URL url = new URL(urlString);
         HttpURLConnectionBuilder connectionBuilder = new HttpURLConnectionBuilder()
             .setUrl(url)
@@ -437,12 +450,24 @@ public class HttpRequestHandler {
 
     public static Boolean isDomainExcludedFromSSL(Bridge bridge, URL url) {
         try {
-            Class<?> sslPinningImpl = Class.forName("io.ionic.sslpinning.SSLPinning");
+            Class<?> sslPinningImpl = findSSLPinningClass();
+            if (sslPinningImpl == null) {
+                return false;
+            }
             Method method = sslPinningImpl.getDeclaredMethod("isDomainExcluded", Bridge.class, URL.class);
             return (Boolean) method.invoke(sslPinningImpl.getDeclaredConstructor().newInstance(), bridge, url);
         } catch (Exception ignored) {
             return false;
         }
+    }
+
+    private static Class<?> findSSLPinningClass() {
+        for (String className : new String[] { "io.ionic.sslpinning.SSLPinning", "com.getcapacitor.community.sslpinning.SSLPinning" }) {
+            try {
+                return Class.forName(className);
+            } catch (ClassNotFoundException ignored) {}
+        }
+        return null;
     }
 
     @FunctionalInterface

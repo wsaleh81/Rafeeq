@@ -1,23 +1,43 @@
 apply plugin: 'com.android.application'
 
+// Release signing: read from android/keystore.properties (local, never committed)
+// or from environment variables (GitHub Actions secrets).
+def keystoreProps = new Properties()
+def keystorePropsFile = rootProject.file("keystore.properties")
+if (keystorePropsFile.exists()) keystorePropsFile.withInputStream { keystoreProps.load(it) }
+def signValue = { String key, String env -> keystoreProps.getProperty(key) ?: System.getenv(env) }
+def releaseStoreFile = signValue('storeFile', 'RIHAL_KEYSTORE_PATH')
+
 android {
-    namespace "com.wael.rafeeq"
-    compileSdk rootProject.ext.compileSdkVersion
+    namespace = "com.wael.rafeeq"
+    compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "com.wael.rafeeq"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // CI sets VERSION_CODE (must increase with every Play upload)
+        versionCode((System.getenv("VERSION_CODE") ?: "1").toInteger())
+        versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
-            ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        release {
+            if (releaseStoreFile) {
+                storeFile file(releaseStoreFile)
+                storePassword signValue('storePassword', 'RIHAL_KEYSTORE_PASSWORD')
+                keyAlias signValue('keyAlias', 'RIHAL_KEY_ALIAS')
+                keyPassword signValue('keyPassword', 'RIHAL_KEY_PASSWORD')
+            }
         }
     }
     buildTypes {
         release {
+            if (releaseStoreFile) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
