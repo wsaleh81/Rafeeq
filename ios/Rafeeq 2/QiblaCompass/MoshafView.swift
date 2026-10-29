@@ -168,8 +168,8 @@ struct MoshafView: View {
         }
         .background(Color.white.ignoresSafeArea())
         .environment(\.colorScheme, .light)
-        .onAppear { OrientationLock.set(.allButUpsideDown) }
-        .onDisappear { OrientationLock.set(.portrait) }
+        .onAppear { OrientationLock.set(.portrait) }
+        .onDisappear { OrientationLock.set(.allButUpsideDown) }
         .onChange(of: page) { _, p in savedPage = p }
         .sheet(isPresented: $showIndex) {
             MoshafIndex { p in page = p; showIndex = false }

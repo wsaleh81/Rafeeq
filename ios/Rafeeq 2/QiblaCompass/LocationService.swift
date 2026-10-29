@@ -1,6 +1,7 @@
 import Foundation
 import CoreLocation
 import Combine
+import UIKit
 
 /// Wraps CoreLocation: GPS position, a compass heading corrected to TRUE north, and a place name.
 final class LocationService: NSObject, ObservableObject, CLLocationManagerDelegate {
@@ -29,6 +30,45 @@ final class LocationService: NSObject, ObservableObject, CLLocationManagerDelega
         manager.headingOrientation = .portrait
         status = manager.authorizationStatus
         if isAuthorized { start() }
+        // the screen turns with the phone, so the compass must measure from the screen's top edge
+        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+        NotificationCenter.default.addObserver(self, selector: #selector(screenTurned),
+                                               name: UIDevice.orientationDidChangeNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(screenTurned),
+                                               name: OrientationLock.changed, object: nil)
+    }
+
+    /// Heading is measured along the top edge of the screen as it is shown now.
+    /// Checked again after the turn animation, since the screen settles a moment after the phone.
+    @objc private func screenTurned() {
+        matchScreen()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in self?.matchScreen() }
+    }
+
+    /// Degrees to add to the phone's heading so it is measured from the top of the screen as shown.
+    /// The phone always reports the heading of its own top edge (upright), so this is done here, not in CoreLocation.
+    private var screenOffset: Double = 0
+    private var rawHeading: Double?
+
+    func matchScreen() {
+        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else { return }
+        // Example: facing north, turn the phone a quarter left (its top points west, heading 270).
+        // The screen turns to landscape-right and its top still points north: 270 + 90 = 0.
+        let off: Double = switch scene.effectiveGeometry.interfaceOrientation {
+        case .landscapeRight: 90
+        case .landscapeLeft: -90
+        case .portraitUpsideDown: 180
+        default: 0
+        }
+        guard off != screenOffset else { return }
+        screenOffset = off
+        publishHeading()
+    }
+
+    private func publishHeading() {
+        guard let r = rawHeading else { return }
+        let h = (r + screenOffset).truncatingRemainder(dividingBy: 360)
+        heading = h < 0 ? h + 360 : h
     }
 
     static var headingAvailable: Bool { CLLocationManager.headingAvailable() }
@@ -42,6 +82,7 @@ final class LocationService: NSObject, ObservableObject, CLLocationManagerDelega
     }
 
     func start() {
+        matchScreen()
         manager.startUpdatingLocation()
         if CLLocationManager.headingAvailable() { manager.startUpdatingHeading() }
     }
@@ -83,8 +124,9 @@ final class LocationService: NSObject, ObservableObject, CLLocationManagerDelega
 
     func locationManager(_ m: CLLocationManager, didUpdateHeading h: CLHeading) {
         headingAccuracy = h.headingAccuracy
-        if h.trueHeading >= 0 { heading = h.trueHeading; usesTrueNorth = true }
-        else { heading = h.magneticHeading; usesTrueNorth = false }
+        if h.trueHeading >= 0 { rawHeading = h.trueHeading; usesTrueNorth = true }
+        else { rawHeading = h.magneticHeading; usesTrueNorth = false }
+        publishHeading()
     }
 
     func locationManagerShouldDisplayHeadingCalibration(_ m: CLLocationManager) -> Bool { true }

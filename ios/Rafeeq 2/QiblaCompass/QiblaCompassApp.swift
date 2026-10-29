@@ -1,15 +1,20 @@
 import SwiftUI
 import UserNotifications
 
-/// The app is portrait only, except the Mushaf reader, which also turns to landscape (two pages side by side).
+/// The app turns with the phone (portrait and landscape), except the Mushaf reader, which stays upright.
 enum OrientationLock {
-    static var mask: UIInterfaceOrientationMask = .portrait
+    static var mask: UIInterfaceOrientationMask = .allButUpsideDown
+    /// Posted when the allowed orientations change, since the screen may turn without the phone moving.
+    static let changed = Notification.Name("OrientationLockChanged")
 
     static func set(_ m: UIInterfaceOrientationMask) {
         mask = m
         guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first else { return }
-        scene.keyWindow?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+        // tell every screen in the stack, so an open full-screen view (the Mushaf) turns at once
+        var vc = scene.keyWindow?.rootViewController
+        while let v = vc { v.setNeedsUpdateOfSupportedInterfaceOrientations(); vc = v.presentedViewController }
         scene.requestGeometryUpdate(.iOS(interfaceOrientations: m)) { _ in }
+        NotificationCenter.default.post(name: changed, object: nil)
     }
 }
 

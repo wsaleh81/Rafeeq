@@ -43,7 +43,7 @@ struct CompassDial: View {
 
                 // lubber pointer
                 Triangle()
-                    .fill(aligned ? Theme.ok : Theme.ink)
+                    .fill(aligned ? Theme.ok : Theme.mint)
                     .frame(width: s * 0.067, height: s * 0.06)
                     .offset(y: -s * 0.5 - s * 0.02)
                 if let turn {

@@ -254,7 +254,7 @@ struct SettingsView: View {
                     }
 
                     group {
-                        row("info.circle", "About", "Rihal رحال 1.0", chevron: false)
+                        row("info.circle", "About", "Rihal 1.0", chevron: false)
                     }
                     .padding(.top, 14)
 

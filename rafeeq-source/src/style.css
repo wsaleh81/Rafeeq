@@ -204,3 +204,18 @@ body.inmush #app{max-width:none}
   [dir=rtl] .hleft,[dir=rtl] .hright{direction:rtl}
   .hright .plist2{margin-top:10px}
 }
+
+/* compact mosque rows: name on one side; distance, walking time and a round directions button on the other */
+.mrow{padding:10px 12px 10px 14px;margin-bottom:6px;border-radius:18px}
+[dir=rtl] .mrow{padding:10px 14px 10px 12px}
+.sug{padding:12px 12px 12px 14px}
+.mline{display:flex;align-items:center;gap:10px}
+.minfo{flex:1;min-width:0}
+.minfo .mname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:1rem}
+.maddr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.mline .mmeta{flex:none;margin:0;display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:.8rem;white-space:nowrap}
+[dir=rtl] .mline .mmeta{align-items:flex-start}
+.mwalk{display:inline-flex;align-items:center;gap:3px;color:var(--muted)}
+.mwalk svg{width:14px;height:14px}
+.dirbtn.round{width:42px;height:42px;min-height:42px;padding:0;border-radius:50%;flex:none}
+.dirbtn.round svg{width:19px;height:19px}

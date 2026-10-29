@@ -1,6 +1,6 @@
 {
   "appId": "com.wael.rafeeq",
-  "appName": "Rihal رحال",
+  "appName": "Rihal",
   "webDir": "www",
   "android": { "allowMixedContent": false },
   "plugins": {

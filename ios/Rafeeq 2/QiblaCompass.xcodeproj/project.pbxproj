@@ -330,7 +330,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RihalAppInfo.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Rihal رحال";
+				INFOPLIST_KEY_CFBundleDisplayName = Rihal;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Rihal uses your location to work out the Qibla direction and your prayer times, and to find nearby mosques and the weather.";
@@ -359,7 +359,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = RihalAppInfo.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "Rihal رحال";
+				INFOPLIST_KEY_CFBundleDisplayName = Rihal;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.lifestyle";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Rihal uses your location to work out the Qibla direction and your prayer times, and to find nearby mosques and the weather.";

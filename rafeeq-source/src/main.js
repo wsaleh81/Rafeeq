@@ -82,6 +82,7 @@ const I = {
   check: '<svg viewBox="0 0 24 24"><path d="M5 12.500l4.500 4.500L19 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   rot: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.500-5.800M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.600" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   rotL: '<svg viewBox="0 0 24 24" style="transform:scaleX(-1)"><path d="M20 12a8 8 0 1 1-2.500-5.800M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="2.600" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  walk: '<svg viewBox="0 0 24 24"><path d="M13.5 5.5c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zM9.8 8.9L7 23h2.1l1.8-8 2.1 2v6h2v-7.5l-2.1-2 .6-3C14.8 12 16.8 13 19 13v-2c-1.9 0-3.5-1-4.3-2.4l-1-1.6c-.4-.6-1-1-1.7-1-.3 0-.5.1-.8.1L6 8.3V13h2V9.6l1.8-.7" fill="currentColor"/></svg>',
   dir: '<svg viewBox="0 0 24 24"><path d="M3 11l18-8-8 18-2-8z" fill="currentColor"/></svg>',
   palette: '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.500 0 2-1 1.500-2.200-.5-1.300.2-2.300 1.500-2.300H17a4 4 0 0 0 4-4C21 6.500 17 3 12 3z" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="7.500" cy="11" r="1.300" fill="currentColor"/><circle cx="10.500" cy="7.500" r="1.300" fill="currentColor"/><circle cx="15" cy="8" r="1.300" fill="currentColor"/></svg>',
 };
@@ -445,10 +446,13 @@ function viewMosques() {
   <div class="row between gap"><button class="pill" data-act="mpicker">${I.pin}<span class="pn">${esc(lab)}</span>${I.chev}</button><button class="iconbtn" data-act="mrefresh">${I.refresh}</button></div>${body}`;
 }
 const notice = (ic, t, s) => `<div class="notice"><div class="ni">${ic}</div><b>${L(t)}</b><p>${L(s)}</p></div>`;
+// One compact line per mosque: the name on one side; distance, walking time and a round directions button on the other.
 function mCard(m, big) {
-  return `<div class="mname">${esc(m.name)}</div>${m.address ? `<div class="muted sm">${esc(m.address)}</div>` : ""}
-   <div class="mmeta"><span>${distTxt(m.d)}</span><span>${L("walk")} ${Math.max(1, Math.round(m.d / 80))} ${L("min")}</span></div>
-   <button class="dirbtn" data-act="directions" data-lat="${m.lat}" data-lon="${m.lon}" data-name="${esc(m.name)}">${I.dir}<span>${L("Directions")}</span></button>`;
+  return `<div class="mline"><div class="minfo">
+     <div class="mname">${esc(m.name)}</div>
+     ${m.address ? `<div class="muted sm maddr">${esc(m.address)}</div>` : ""}</div>
+   <div class="mmeta"><span>${distTxt(m.d)}</span><span class="mwalk" aria-label="${L("walk")}">${I.walk}${Math.max(1, Math.round(m.d / 80))} ${L("min")}</span></div>
+   <button class="dirbtn round" data-act="directions" data-lat="${m.lat}" data-lon="${m.lon}" data-name="${esc(m.name)}" aria-label="${L("Directions")}">${I.dir}</button></div>`;
 }
 let dirTarget = null;
 function dirSheet() {
@@ -458,6 +462,40 @@ function dirSheet() {
     <a class="dopt" href="${w}" target="_blank" rel="noopener"><span>🚗</span><span>${L("Open in Waze")}</span></a>
     <button class="btn ghost big" data-act="closeSheet">${L("Cancel")}</button></div>`;
 }
+// fetch with a time limit, so a server that never answers cannot stall the search
+async function getJSON(url, ms) {
+  const ac = new AbortController(), t = setTimeout(() => ac.abort(), ms);
+  try { const r = await fetch(url, { signal: ac.signal }); if (!r.ok) throw new Error(r.status); return await r.json(); }
+  finally { clearTimeout(t); }
+}
+// resolves with the first non-empty list from the given promises, or null when all fail or the time is up
+function firstOf(promises, ms) {
+  return new Promise(done => {
+    let left = promises.length; const timer = setTimeout(() => done(null), ms);
+    for (const p of promises) p.then(l => { if (l && l.length) { clearTimeout(timer); done(l); } else if (!--left) { clearTimeout(timer); done(null); } },
+                                     () => { if (!--left) { clearTimeout(timer); done(null); } });
+  });
+}
+const mosqueItem = (c, la, lo, t) => ({ name: (ar() ? (t["name:ar"] || t.name) : (t["name:en"] || t.name)) || t["name:ar"] || L("Mosque"),
+  address: [t["addr:street"] || t.street, t["addr:suburb"] || t["addr:city"] || t.district || t.city].filter(Boolean).join(", "),
+  lat: la, lon: lo, d: haversine(c.lat, c.lon, la, lo) * 1000 });
+function dedupe(items) { const seen = new Set(); return items.filter(m => { const k = m.lat.toFixed(4) + m.lon.toFixed(4); if (seen.has(k)) return false; seen.add(k); return true; }); }
+function overpassMosques(c) {
+  const ql = `[out:json][timeout:8];(node["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${r2(c.lat)},${r2(c.lon)});way["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${r2(c.lat)},${r2(c.lon)}););out center tags 60;`;
+  const hosts = ["https://overpass-api.de", "https://lz4.overpass-api.de", "https://z.overpass-api.de", "https://overpass.private.coffee", "https://maps.mail.ru/osm/tools/overpass"];
+  return hosts.map(h => getJSON(h + "/api/interpreter?data=" + encodeURIComponent(ql), 9000).then(j =>
+    dedupe((j.elements || []).map(e => { const la = e.lat ?? e.center?.lat, lo = e.lon ?? e.center?.lon; return la == null ? null : mosqueItem(c, la, lo, e.tags || {}); }).filter(Boolean))));
+}
+function photonMosques(c) {
+  const dLat = 0.04, dLon = 0.04 / Math.cos(c.lat * Math.PI / 180);   // about 4.5 km each way
+  // rounded like the other look-ups, so the exact position never leaves the phone
+  const la = +r2(c.lat), lo = +r2(c.lon);
+  const bbox = [lo - dLon, la - dLat, lo + dLon, la + dLat].map(v => v.toFixed(2)).join(",");
+  const one = q => getJSON(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&bbox=${bbox}&limit=50&osm_tag=amenity:place_of_worship`, 8000)
+    .then(j => (j.features || []).map(f => mosqueItem(c, f.geometry.coordinates[1], f.geometry.coordinates[0], f.properties || {})));
+  // both words, merged: some mosques are only named in one language
+  return [Promise.allSettled([one("مسجد"), one("mosque")]).then(r => dedupe(r.flatMap(x => x.status === "fulfilled" ? x.value : [])).filter(m => m.d < 5000))];
+}
 async function loadMosques(force) {
   const c = S.place, key = c.lat.toFixed(2) + "," + c.lon.toFixed(2);
   if (!force && mosqueState.key === key) return;
@@ -465,19 +503,11 @@ async function loadMosques(force) {
   try { const cached = JSON.parse(localStorage.getItem("rafeeq_m_" + key) || "null"); if (cached && !mosqueState.list.length) mosqueState.list = cached; } catch (e) {}
   if (S.tab === 1) render();
   if (!net.online) { mosqueState.loading = false; if (S.tab === 1) render(); return; }
-  const ql = `[out:json][timeout:10];(node["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${r2(c.lat)},${r2(c.lon)});way["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${r2(c.lat)},${r2(c.lon)}););out center tags 60;`;
-  let j = null;
-  for (const host of ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]) {
-    try { const r = await fetch(host + "?data=" + encodeURIComponent(ql)); j = await r.json(); if (j && j.elements) break; } catch (e) {}
-  }
-  if (j && j.elements) {
-    const seen = new Set(), out = [];
-    for (const e of j.elements) {
-      const la = e.lat ?? e.center?.lat, lo = e.lon ?? e.center?.lon; if (la == null) continue;
-      const t = e.tags || {}, k = la.toFixed(5) + lo.toFixed(5); if (seen.has(k)) continue; seen.add(k);
-      out.push({ name: (ar() ? (t["name:ar"] || t.name) : (t["name:en"] || t.name)) || t["name:ar"] || L("Mosque"), address: [t["addr:street"], t["addr:suburb"] || t["addr:city"]].filter(Boolean).join(", "), lat: la, lon: lo, d: haversine(c.lat, c.lon, la, lo) * 1000 });
-    }
-    out.sort((a, b) => a.d - b.d); mosqueState.list = out.slice(0, 40);
+  // Ask several OpenStreetMap servers at once and take the first good answer; each gets at most 9 s.
+  // If every Overpass server is down or busy, fall back to Photon search, so the list never hangs.
+  const list = await firstOf(overpassMosques(c), 9000) || await firstOf(photonMosques(c), 8000);
+  if (list) {
+    list.sort((a, b) => a.d - b.d); mosqueState.list = list.slice(0, 40);
     try { localStorage.setItem("rafeeq_m_" + key, JSON.stringify(mosqueState.list)); } catch (e) {}
   } else mosqueState.failed = !mosqueState.list.length;
   mosqueState.loading = false; if (S.tab === 1) render();
@@ -529,7 +559,7 @@ function viewSettings() {
     (alertsDenied ? (ar() ? "التنبيهات مغلقة لهذا التطبيق في إعدادات الجهاز. " : F("Notifications are off for this app in device settings. ")) : "") + L("Tap the bell next to a prayer to mute just that prayer.") + (nativeOK() ? "" : (ar() ? " التنبيهات المجدولة تعمل في تطبيق الأندرويد." : " Scheduled alerts work in the Android app.")))}
   ${sect("compass", srow(L("Preview mode (turn dial by hand)"), tog("preview", S.preview)))}
   ${sect("units", srow(L("Temperature"), sel("temp", [["c", L("Celsius (°C)")], ["f", L("Fahrenheit (°F)")]], S.temp)))}
-  <div class="shead">${L("About")}</div><div class="card sbox"><div class="srow"><div class="sl">Rihal رحال 1.0</div></div><a class="srow" href="${PRIVACY_URL}" target="_blank" rel="noopener"><div class="sl">${PRIVACY_LABEL[S.lang] || "Privacy policy"}</div><span aria-hidden="true">↗</span></a></div>
+  <div class="shead">${L("About")}</div><div class="card sbox"><div class="srow"><div class="sl">Rihal 1.0</div></div><a class="srow" href="${PRIVACY_URL}" target="_blank" rel="noopener"><div class="sl">${PRIVACY_LABEL[S.lang] || "Privacy policy"}</div><span aria-hidden="true">↗</span></a></div>
   <div class="sfoot">${ar() ? "كل الحسابات تتم على هذا الجهاز. تُرسل مدينتك التقريبية فقط عند البحث عن المساجد والطقس." : F("Everything is calculated on this device. Only your approximate location is sent when you look up mosques or weather.")}</div>`;
 }
 
@@ -636,7 +666,7 @@ document.addEventListener("touchend", e => {
 /* ---------- boot ---------- */
 function welcome() {
   const el = $("#sheet");
-  el.innerHTML = `<div class="sheetbg"></div><div class="sheet welcome"><img src="icon.png" class="wlogo" alt=""><h1>${ar() ? "رحال" : "Rihal"}</h1>
+  el.innerHTML = `<div class="sheetbg"></div><div class="sheet welcome"><img src="icon.png" class="wlogo" alt=""><h1>Rihal</h1>
    <p>${ar() ? "القبلة ومواقيت الصلاة والأذكار في أي مكان — يعمل دون إنترنت." : F("Qibla, prayer times and Azkhar, anywhere. Works offline.")}</p>
    <ul><li>${ar() ? "بلا حساب ولا تتبع ولا إعلانات" : F("No account, no tracking, no ads")}</li><li>${ar() ? "الحسابات تتم على هاتفك" : F("Calculated on your phone")}</li></ul>
    <button class="btn big" id="wgps">${L("Allow location while using the app")}</button><button class="btn ghost big" id="wcity">${L("Choose a city instead")}</button></div>`;

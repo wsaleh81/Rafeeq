@@ -41,10 +41,9 @@ struct RingsDial: View {
                 .frame(width: s, height: s)
                 .rotationEffect(.degrees(-heading)) }
 
-                // arrow in the centre points to the Qibla
-                Image(systemName: "location.north.fill")
-                    .font(.system(size: s * 0.12, weight: .bold))
-                    .foregroundStyle(tint ?? Theme.mint)
+                // Islamic-style arrow in the centre points to the Qibla (not the navigation icon)
+                IslamicArrow(aligned: aligned, dark: tint ?? Theme.mint, light: Theme.mintTint)
+                    .frame(width: s * 0.075, height: s * 0.23)
                     .rotationEffect(.degrees(toQibla))
 
                 // Kaaba marker on the outer ring
@@ -58,7 +57,7 @@ struct RingsDial: View {
                 .offset(x: s * 0.385 * CGFloat(sin(toQibla * .pi / 180)), y: -s * 0.385 * CGFloat(cos(toQibla * .pi / 180)))
 
                 // fixed marker: where the top of the phone points
-                Triangle().fill(aligned ? Theme.ok : Theme.ink)
+                Triangle().fill(aligned ? Theme.ok : Theme.mint)
                     .frame(width: s * 0.06, height: s * 0.05)
                     .offset(y: -s * 0.5 - s * 0.01)
             }

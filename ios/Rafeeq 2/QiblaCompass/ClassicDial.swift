@@ -100,8 +100,8 @@ struct ClassicDial: View {
 
             // fixed pointer at the top
             ZStack {
-                Poly([(139, -10), (161, -10), (150, 8)]).fill(Color.white)
-                Poly([(139, -10), (161, -10), (150, 8)]).stroke(Color.white, style: StrokeStyle(lineWidth: 3 * k, lineJoin: .round))
+                Poly([(139, -10), (161, -10), (150, 8)]).fill(aligned ? Theme.ok : Theme.mint)
+                Poly([(139, -10), (161, -10), (150, 8)]).stroke(aligned ? Theme.ok : Theme.mint, style: StrokeStyle(lineWidth: 3 * k, lineJoin: .round))
             }
             .frame(width: s, height: s)
         }

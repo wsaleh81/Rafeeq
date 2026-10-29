@@ -62,7 +62,7 @@ export function classicSVG(T, themed) {
    <circle cx="150" cy="150" r="37" fill="url(#gCore)" stroke="#fff" stroke-opacity=".7" stroke-width="1.5"/>
    <ellipse cx="150" cy="126" rx="21" ry="9" fill="#fff" fill-opacity=".35"/>
    <g id="darrow" transform="translate(150 150)">${arrowSVG(26, 80, L.inner, L.accentLight, T.ok)}</g>
-   <polygon points="139,-10 161,-10 150,8" fill="#fff" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+   <polygon id="dtri" points="139,-10 161,-10 150,8" fill="${T.accent}" stroke="${T.accent}" stroke-width="3" stroke-linejoin="round"/>
   </svg>`;
 }
 
@@ -73,12 +73,12 @@ export function ringsSVG(T) {
    <circle cx="150" cy="150" r="106.5" fill="${T.accent}" fill-opacity=".28"/>
    <circle cx="150" cy="150" r="68.25" fill="${T.accent}" fill-opacity=".55"/>
    <circle cx="150" cy="150" r="41.25" fill="${T.night}"/>
-   <g id="rarrow" transform="translate(150 150)"><path id="rarrowp" d="M0 -20 L16 18 L0 9 L-16 18 Z" fill="${T.accent}" stroke-linejoin="round" stroke="${T.accent}" stroke-width="3"/></g>
+   <g id="rarrow" transform="translate(150 150)">${arrowSVG(22.5, 69, T.accent, T.tint, T.ok)}</g>
    <g id="rmark" transform="translate(150 34.5)">
      <circle id="rring" r="19.5" fill="${T.accent}" stroke="transparent" stroke-width="3"/>
      <rect x="-6.75" y="-7.5" width="13.5" height="15" rx="2" fill="${T.night}"/><rect x="-6.75" y="-4.5" width="13.5" height="2" fill="${T.sun}"/>
    </g>
-   <polygon id="rtri" points="-9,0 9,0 0,15" transform="translate(150 -3)" fill="${T.ink}"/>
+   <polygon id="rtri" points="-9,0 9,0 0,15" transform="translate(150 -3)" fill="${T.accent}"/>
   </svg>`;
 }
 
@@ -95,12 +95,17 @@ export function updateDial(root, T, shown, q, aligned, tint) {
     set(g("kaaba"), "transform", `rotate(${shown - q} 150 24)`);
     set(g("darrow"), "transform", `translate(150 150) rotate(${toQ})`);
     svg.classList.toggle("aligned", !!aligned);
+    const tri = g("dtri"); set(tri, "fill", aligned ? T.ok : T.accent); set(tri, "stroke", aligned ? T.ok : T.accent);
   } else {
     set(g("rarrow"), "transform", `translate(150 150) rotate(${toQ})`);
-    const p = g("rarrowp"); if (p) { const c = tint || T.accent; set(p, "fill", c); set(p, "stroke", c); }
+    // the Islamic arrow takes the zone colour (red / yellow / green); it glows when facing the Qibla
+    const c = tint || T.accent;
+    for (const el of svg.querySelectorAll("#rarrow .ia-tail, #rarrow .ia-shaft, #rarrow .ia-head")) set(el, "fill", c);
+    set(svg.querySelector("#rarrow .ia-star"), "stroke", c);
+    svg.classList.toggle("aligned", !!aligned);
     set(g("rmark"), "transform", `translate(${150 + 115.5 * sin(toQ)} ${150 - 115.5 * cos(toQ)})`);
     set(g("rring"), "stroke", aligned ? T.ok : "transparent");
-    set(g("rtri"), "fill", aligned ? T.ok : T.ink);
+    set(g("rtri"), "fill", aligned ? T.ok : T.accent);
   }
 }
 
