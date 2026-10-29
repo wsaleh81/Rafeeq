@@ -1,5 +1,5 @@
 import { X, U } from "./langs.js";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { Geolocation } from "@capacitor/geolocation";
 import DATA from "./data.json";
@@ -119,6 +119,13 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { 
 /* ---------- compass sensor ---------- */
 const sensor = { heading: null, accuracy: null, available: true, listening: false, needPermission: false };
 let shown = 0, previewDeg = 0, dialEls = null, wasAligned = false;
+// Android: native fused compass (CompassPlugin.java) does tilt compensation, declination and smoothing.
+const NativeCompass = Capacitor.getPlatform() === "android" ? registerPlugin("Compass") : null;
+let nativeOn = false;
+async function pushLocation() {
+  if (!NativeCompass || !S.place) return;
+  try { await NativeCompass.setLocation({ lat: S.place.lat, lon: S.place.lon, alt: 0 }); } catch (e) {}
+}
 function headingFrom(e) {
   if (e.webkitCompassHeading != null) return e.webkitCompassHeading;
   if (e.alpha == null) return null;
@@ -130,6 +137,7 @@ function headingFrom(e) {
 }
 let lastSensor = 0;
 function onOrient(e) {
+  if (nativeOn) return;
   if (e.type === "deviceorientation" && sensor.absSeen && e.webkitCompassHeading == null) return;
   if (e.type === "deviceorientationabsolute") sensor.absSeen = true;
   if (e.type === "deviceorientation" && e.webkitCompassHeading == null && e.absolute !== true) return;
@@ -140,6 +148,23 @@ function onOrient(e) {
 }
 async function startCompass() {
   if (sensor.listening) return;
+  if (NativeCompass) {
+    try {
+      const r = await NativeCompass.start();
+      if (r && r.available) {
+        if (!nativeOn) {
+          nativeOn = true;
+          NativeCompass.addListener("heading", o => {
+            sensor.heading = o.heading; sensor.accuracy = o.accuracy;
+            if (S.tab === 0 && !S.preview) updateDial();
+          });
+        }
+        sensor.listening = true;
+        await pushLocation();
+        return;
+      }
+    } catch (e) {}
+  }
   try {
     if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
       const r = await DeviceOrientationEvent.requestPermission();
@@ -195,7 +220,7 @@ async function useGPS(silent) {
       } catch (e) {}
     } else if (near.d >= 40) { iso = near.c.iso; }
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || near.c.tz;
-    S.place = { name, country, lat, lon, tz, iso, gps: true }; S.gps = true; save();
+    S.place = { name, country, lat, lon, tz, iso, gps: true }; S.gps = true; save(); pushLocation();
     gpsState = "ok"; gpsFixAt = Date.now(); weather = null; loadWeather(); scheduleAlerts(); render(); if (S.tab === 1) loadMosques();
   } catch (e) { gpsState = "denied"; render(); }
 }
@@ -298,7 +323,11 @@ function target() { return S.preview ? previewDeg : sensor.heading; }
 function updateDial() {
   const root = $("#hdial"); if (!root) return;
   const t = target(), q = qiblaDeg();
-  if (t != null) shown += diff(t, shown);
+  if (t != null) {
+    // Low-pass smoothing plus a small dead band, so sensor noise does not keep the dial moving.
+    const step = diff(t, shown);
+    if (Math.abs(step) > 0.4) shown = norm(shown + step * 0.25);
+  }
   const d = t == null ? null : diff(q, t), aligned = d != null && Math.abs(d) <= 3;
   const km = Math.round(Qibla.distanceKm(S.place.lat, S.place.lon));
   dialUpdate(root, T, shown, q, aligned, S.compass === "rings" ? zoneHex(d) : null, `${km.toLocaleString("en-US")} ${ar() ? "كم" : "km"}`);
@@ -509,7 +538,7 @@ function remoteSearch(q) {
 }
 function renderSheet() { const el = $("#sheet"); el.innerHTML = dirTarget ? dirSheet() : pickerOpen ? viewPicker() : ""; }
 function choose(c) {
-  S.place = { ...c }; S.gps = false; save(); weather = null; pickerOpen = null; renderSheet(); loadWeather(); scheduleAlerts(); render(); if (S.tab === 1) loadMosques();
+  S.place = { ...c }; S.gps = false; save(); pushLocation(); weather = null; pickerOpen = null; renderSheet(); loadWeather(); scheduleAlerts(); render(); if (S.tab === 1) loadMosques();
 }
 
 /* ---------- render & events ---------- */
