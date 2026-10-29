@@ -185,7 +185,7 @@ let weather = null;
 async function loadWeather() {
   try {
     const p = S.place;
-    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${p.lat}&longitude=${p.lon}&current=temperature_2m,weather_code,is_day&timezone=auto`);
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${r2(p.lat)}&longitude=${r2(p.lon)}&current=temperature_2m,weather_code,is_day&timezone=auto`);
     const j = await r.json(); weather = { t: j.current.temperature_2m, code: j.current.weather_code, day: j.current.is_day === 1 };
     const el = $("#wchip"); if (el) el.outerHTML = weatherChip();
   } catch (e) {}
@@ -195,6 +195,10 @@ function wIcon(c, day) {
   if (c <= 57) return "🌦️"; if (c <= 67) return "🌧️"; if (c <= 77) return "🌨️"; if (c <= 82) return "🌧️"; if (c <= 86) return "🌨️"; return "⛈️";
 }
 function weatherChip() { return weatherBlock(); }
+// Coordinates sent to online services are rounded to 2 decimals (about 1 km), as in the iPhone app.
+const r2 = v => (Math.round(v * 100) / 100).toFixed(2);
+const PRIVACY_URL = "https://github.com/wsaleh81/Rafeeq/blob/main/PRIVACY.md";
+const PRIVACY_LABEL = { ar: "سياسة الخصوصية", tr: "Gizlilik politikası", fr: "Politique de confidentialité", it: "Informativa sulla privacy", de: "Datenschutzerklärung", nl: "Privacybeleid", es: "Política de privacidad", ur: "رازداری کی پالیسی", ta: "தனியுரிமைக் கொள்கை", ru: "Политика конфиденциальности" };
 function qiblaDeg() { return Qibla.bearing(S.place.lat, S.place.lon); }
 
 async function useGPS(silent) {
@@ -214,7 +218,7 @@ async function useGPS(silent) {
     let name = near.d < 40 ? near.c.name : "My location", country = near.c.country, iso = near.c.iso;
     if (net.online) {
       try {
-        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=10&accept-language=${ar() ? "ar" : "en"}&lat=${lat}&lon=${lon}`);
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=10&accept-language=${ar() ? "ar" : "en"}&lat=${r2(lat)}&lon=${r2(lon)}`);
         const j = await r.json(); const a = j.address || {};
         name = a.city || a.town || a.village || a.suburb || a.county || a.state || name; country = a.country || country; iso = (a.country_code || iso || "--").toUpperCase();
       } catch (e) {}
@@ -439,7 +443,7 @@ async function loadMosques(force) {
   try { const cached = JSON.parse(localStorage.getItem("rafeeq_m_" + key) || "null"); if (cached && !mosqueState.list.length) mosqueState.list = cached; } catch (e) {}
   if (S.tab === 1) render();
   if (!net.online) { mosqueState.loading = false; if (S.tab === 1) render(); return; }
-  const ql = `[out:json][timeout:10];(node["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${c.lat},${c.lon});way["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${c.lat},${c.lon}););out center tags 60;`;
+  const ql = `[out:json][timeout:10];(node["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${r2(c.lat)},${r2(c.lon)});way["amenity"="place_of_worship"]["religion"="muslim"](around:3000,${r2(c.lat)},${r2(c.lon)}););out center tags 60;`;
   let j = null;
   for (const host of ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]) {
     try { const r = await fetch(host + "?data=" + encodeURIComponent(ql)); j = await r.json(); if (j && j.elements) break; } catch (e) {}
@@ -503,7 +507,7 @@ function viewSettings() {
     (alertsDenied ? (ar() ? "التنبيهات مغلقة لهذا التطبيق في إعدادات الجهاز. " : F("Notifications are off for this app in device settings. ")) : "") + L("Tap the bell next to a prayer to mute just that prayer.") + (nativeOK() ? "" : (ar() ? " التنبيهات المجدولة تعمل في تطبيق الأندرويد." : " Scheduled alerts work in the Android app.")))}
   ${sect("compass", srow(L("Preview mode (turn dial by hand)"), tog("preview", S.preview)))}
   ${sect("units", srow(L("Temperature"), sel("temp", [["c", L("Celsius (°C)")], ["f", L("Fahrenheit (°F)")]], S.temp)))}
-  <div class="shead">${L("About")}</div><div class="card sbox"><div class="srow"><div class="sl">Rihal رحال 1.0</div></div></div>
+  <div class="shead">${L("About")}</div><div class="card sbox"><div class="srow"><div class="sl">Rihal رحال 1.0</div></div><a class="srow" href="${PRIVACY_URL}" target="_blank" rel="noopener"><div class="sl">${PRIVACY_LABEL[S.lang] || "Privacy policy"}</div><span aria-hidden="true">↗</span></a></div>
   <div class="sfoot">${ar() ? "كل الحسابات تتم على هذا الجهاز. تُرسل مدينتك التقريبية فقط عند البحث عن المساجد والطقس." : F("Everything is calculated on this device. Only your approximate location is sent when you look up mosques or weather.")}</div>`;
 }
 

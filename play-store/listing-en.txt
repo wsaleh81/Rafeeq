@@ -1,0 +1,48 @@
+APP NAME (max 30)
+Rihal: Qibla & Prayer Times
+
+SHORT DESCRIPTION (max 80)
+Qibla compass, prayer times, adhan alerts and nearby mosques wherever you travel
+
+FULL DESCRIPTION (max 4000)
+Rihal (رحّال, "traveller") keeps a Muslim traveller oriented in any city: which way to pray, when to pray and where the nearest mosque is.
+
+QIBLA COMPASS
+• Points to the Kaaba in Makkah from wherever you are, with the distance in kilometres
+• Uses the phone's motion sensors with tilt compensation and corrects for magnetic declination
+• Turns green and vibrates when you face the Qibla
+• Shows the sun's path for the day on the dial
+• Works offline
+
+PRAYER TIMES
+• Fajr, Sunrise, Dhuhr, Asr, Maghrib and Isha for your location or any city you choose
+• Countdown to the next prayer and the Hijri date
+• Several calculation methods, Hanafi Asr option and minute-by-minute adjustments
+• Shows the local time of the selected city, so the times are right even before your phone changes time zone
+
+ADHAN ALERTS
+• A notification at each prayer time, scheduled on your phone
+• Turn the adhan sound on for the prayers you choose
+• Optional reminder before each prayer and an optional sunrise alert
+
+NEARBY MOSQUES
+• Mosques around you or around the city you pick, sorted by distance and walking time
+• Directions in Google Maps or Waze with one tap
+
+AZKHAR AND QURAN
+• Morning, evening, after-prayer, sleep and travel azkhar, with a counter for each
+• Arabic text with English meaning
+• Read the Mushaf page by page; on a wide or unfolded screen it opens as a two-page book
+• Sources are shown in the app (Quran text: Tanzil; azkar: Hisn al-Muslim)
+
+MADE FOR TRAVELLERS
+• 11 languages: Arabic, English, Turkish, French, German, Spanish, Italian, Dutch, Russian, Urdu and Tamil
+• Full Arabic interface, right to left
+• Light and dark themes with six colour palettes
+• Larger text sizes, bold text and a choice of Arabic fonts for easier reading
+• Current weather for your location
+
+PRIVACY
+No account, no ads and no analytics. Qibla and prayer times are calculated on your phone. Your location is used only to look up nearby mosques, the weather and your city name, and is rounded to about 1 km before it is sent. You can also choose a city instead of sharing your location.
+
+Rihal is free.
