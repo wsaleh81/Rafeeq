@@ -1,6 +1,10 @@
 package com.wael.rafeeq;
 
 import android.content.Context;
+import android.os.Build;
+import android.view.Display;
+import android.view.Surface;
+import android.view.WindowManager;
 import android.hardware.GeomagneticField;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -27,6 +31,7 @@ public class CompassPlugin extends Plugin implements SensorEventListener {
     private double sx = 0, sy = 0;
     private boolean hasSmooth = false;
     private long lastEmit = 0;
+    private final float[] R0 = new float[9];
     private final float[] R = new float[9];
 
     @PluginMethod
@@ -80,7 +85,19 @@ public class CompassPlugin extends Plugin implements SensorEventListener {
     @Override
     public void onSensorChanged(SensorEvent e) {
         if (e.sensor.getType() != Sensor.TYPE_ROTATION_VECTOR) return;
-        SensorManager.getRotationMatrixFromVector(R, e.values);
+        SensorManager.getRotationMatrixFromVector(R0, e.values);
+        // Remap device axes to the current screen orientation so the heading follows the
+        // screen's top edge in portrait AND landscape (otherwise landscape is off by 90 deg).
+        switch (displayRotation()) {
+            case Surface.ROTATION_90:
+                SensorManager.remapCoordinateSystem(R0, SensorManager.AXIS_Y, SensorManager.AXIS_MINUS_X, R); break;
+            case Surface.ROTATION_180:
+                SensorManager.remapCoordinateSystem(R0, SensorManager.AXIS_MINUS_X, SensorManager.AXIS_MINUS_Y, R); break;
+            case Surface.ROTATION_270:
+                SensorManager.remapCoordinateSystem(R0, SensorManager.AXIS_MINUS_Y, SensorManager.AXIS_X, R); break;
+            default:
+                System.arraycopy(R0, 0, R, 0, 9);
+        }
         // R maps device axes to world axes (x = east, y = north, z = up).
         // Heading = horizontal direction of (top edge - screen normal). This is the top of the phone
         // when it lies flat and the back camera direction when it is upright, and it changes smoothly
@@ -110,6 +127,21 @@ public class CompassPlugin extends Plugin implements SensorEventListener {
         o.put("heading", h);
         o.put("accuracy", accuracy);
         notifyListeners("heading", o);
+    }
+
+    @SuppressWarnings("deprecation")
+    private int displayRotation() {
+        try {
+            Display d = null;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && getActivity() != null) d = getActivity().getDisplay();
+            if (d == null) {
+                WindowManager wm = (WindowManager) getContext().getSystemService(Context.WINDOW_SERVICE);
+                if (wm != null) d = wm.getDefaultDisplay();
+            }
+            return d != null ? d.getRotation() : Surface.ROTATION_0;
+        } catch (Exception ex) {
+            return Surface.ROTATION_0;
+        }
     }
 
     @Override
