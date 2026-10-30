@@ -1,4 +1,4 @@
-package com.wael.rafeeq;
+package com.wael.rihal;
 
 import android.content.Context;
 import android.os.Build;

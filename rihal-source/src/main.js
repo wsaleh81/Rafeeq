@@ -29,9 +29,9 @@ const DEF = {
   gps: false,
 };
 let S = { ...DEF };
-try { Object.assign(S, JSON.parse(localStorage.getItem("rafeeq") || "{}")); } catch (e) {}
+try { Object.assign(S, JSON.parse(localStorage.getItem("rihal") || "{}")); } catch (e) {}
 if (S.v !== 2) { S.tab = 0; S.v = 2; S.alarm = S.alarm || {}; }
-const save = () => { try { localStorage.setItem("rafeeq", JSON.stringify(S)); } catch (e) {} };
+const save = () => { try { localStorage.setItem("rihal", JSON.stringify(S)); } catch (e) {} };
 const ar = () => S.lang === "ar";
 const F = (t, ...a) => { const x = (U[S.lang] && U[S.lang].tpl[t]) || t; return x.replace(/\{(\d)\}/g, (_, i) => a[i]); };
 const rtl = () => S.lang === "ar" || S.lang === "ur";
@@ -198,7 +198,7 @@ function wIcon(c, day) {
 function weatherChip() { return weatherBlock(); }
 // Coordinates sent to online services are rounded to 2 decimals (about 1 km), as in the iPhone app.
 const r2 = v => (Math.round(v * 100) / 100).toFixed(2);
-const PRIVACY_URL = "https://github.com/wsaleh81/Rafeeq/blob/main/PRIVACY.md";
+const PRIVACY_URL = "https://github.com/wsaleh81/Rihal/blob/main/PRIVACY.md";
 const PRIVACY_LABEL = { ar: "سياسة الخصوصية", tr: "Gizlilik politikası", fr: "Politique de confidentialité", it: "Informativa sulla privacy", de: "Datenschutzerklärung", nl: "Privacybeleid", es: "Política de privacidad", ur: "رازداری کی پالیسی", ta: "தனியுரிமைக் கொள்கை", ru: "Политика конфиденциальности" };
 function qiblaDeg() { return Qibla.bearing(S.place.lat, S.place.lon); }
 

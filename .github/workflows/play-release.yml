@@ -13,13 +13,13 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: rafeeq-source
+        working-directory: rihal-source
     env:
       VERSION_CODE: ${{ github.run_number }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm, cache-dependency-path: rafeeq-source/package-lock.json }
+        with: { node-version: 22, cache: npm, cache-dependency-path: rihal-source/package-lock.json }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
       - run: npm ci
@@ -38,7 +38,7 @@ jobs:
             echo "SIGNED=no" >> "$GITHUB_ENV"
           fi
       - name: Build bundle and APK
-        working-directory: rafeeq-source/android
+        working-directory: rihal-source/android
         env:
           RIHAL_KEYSTORE_PASSWORD: ${{ secrets.RIHAL_KEYSTORE_PASSWORD }}
           RIHAL_KEY_ALIAS: ${{ secrets.RIHAL_KEY_ALIAS }}
@@ -53,7 +53,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Rihal-play-${{ github.run_number }}
-          path: rafeeq-source/out
+          path: rihal-source/out
       - name: Publish build to GitHub release "play-build"
         env:
           GH_TOKEN: ${{ github.token }}

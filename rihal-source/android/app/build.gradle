@@ -9,10 +9,10 @@ def signValue = { String key, String env -> keystoreProps.getProperty(key) ?: Sy
 def releaseStoreFile = signValue('storeFile', 'RIHAL_KEYSTORE_PATH')
 
 android {
-    namespace = "com.wael.rafeeq"
+    namespace = "com.wael.rihal"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.wael.rafeeq"
+        applicationId "com.wael.rihal"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // CI sets VERSION_CODE (must increase with every Play upload)

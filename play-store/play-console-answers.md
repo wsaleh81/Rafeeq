@@ -3,7 +3,7 @@
 Copy these answers into Play Console under **Policy and programs → App content**. They match what the app does as of build `play-release`.
 
 ## Privacy policy
-URL: `https://github.com/wsaleh81/Rafeeq/blob/main/PRIVACY.md`
+URL: `https://github.com/wsaleh81/Rihal/blob/main/PRIVACY.md`
 (The URL works after the `play-release` branch is merged into `main`. The app's Settings → About → Privacy policy opens the same link.)
 
 ## App access
