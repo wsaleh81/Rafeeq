@@ -10,7 +10,6 @@ final class AppModel: ObservableObject {
     @AppStorage("hanafi") var hanafi = false
     @AppStorage("usingGPS") var usingGPS = true
     @AppStorage("cityName") var cityName = "Kuwait City"
-    @AppStorage("previewMode") var previewMode = false
     @AppStorage("themeID") var themeID = "modern"
     @AppStorage("paletteID") var paletteID = "ocean"
     @AppStorage("appearance") var appearance = "auto"
@@ -26,6 +25,8 @@ final class AppModel: ObservableObject {
     @AppStorage("notifSunrise") var notifSunrise = false
 
     @Published var tab = 0
+    /// when the app went to the background; after 5 minutes away it opens on Prayer Times again
+    var leftAt: Date?
     @Published var changedFrom: String?
     @Published var previousPlace: Place?
     @Published var timedOut = false

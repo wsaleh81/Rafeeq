@@ -18,6 +18,8 @@ final class LocationService: NSObject, ObservableObject, CLLocationManagerDelega
     @Published var usesTrueNorth = false
 
     private let manager = CLLocationManager()
+    /// true while the compass is on screen; the heading sensor is off otherwise (battery and heat)
+    private var wantsHeading = false
     private let geocoder = CLGeocoder()
     private var lastGeocode = Date.distantPast
 
@@ -83,8 +85,27 @@ final class LocationService: NSObject, ObservableObject, CLLocationManagerDelega
 
     func start() {
         matchScreen()
+        manager.desiredAccuracy = kCLLocationAccuracyBest
         manager.startUpdatingLocation()
+        if wantsHeading && CLLocationManager.headingAvailable() { manager.startUpdatingHeading() }
+    }
+
+    /// Compass on screen: heading on. True north needs location updates running too, so they run at low power.
+    func startHeading() {
+        wantsHeading = true
+        matchScreen()
         if CLLocationManager.headingAvailable() { manager.startUpdatingHeading() }
+        if isAuthorized && coordinate != nil {
+            manager.desiredAccuracy = kCLLocationAccuracyThreeKilometers
+            manager.startUpdatingLocation()
+        }
+    }
+
+    /// Compass hidden or app in the background: heading off, and GPS off once the position is known.
+    func stopHeading() {
+        wantsHeading = false
+        manager.stopUpdatingHeading()
+        if coordinate != nil { manager.stopUpdatingLocation() }
     }
 
     /// Ask for a fresh position now and re-resolve the place name.
@@ -92,10 +113,16 @@ final class LocationService: NSObject, ObservableObject, CLLocationManagerDelega
         failed = false
         lastGeocode = .distantPast
         if status == .notDetermined { manager.requestWhenInUseAuthorization() }
-        else if isAuthorized { manager.stopUpdatingLocation(); manager.startUpdatingLocation(); manager.requestLocation() }
+        else if isAuthorized { manager.desiredAccuracy = kCLLocationAccuracyBest; manager.stopUpdatingLocation(); manager.startUpdatingLocation(); manager.requestLocation() }
     }
 
     func stop() {
+        manager.stopUpdatingLocation()
+        manager.stopUpdatingHeading()
+    }
+
+    /// App left: everything off. The compass turns its sensor on again when it is shown.
+    func pause() {
         manager.stopUpdatingLocation()
         manager.stopUpdatingHeading()
     }
@@ -111,6 +138,10 @@ final class LocationService: NSObject, ObservableObject, CLLocationManagerDelega
         fixDate = Date()
         accuracy = loc.horizontalAccuracy >= 0 ? loc.horizontalAccuracy : nil
         failed = false
+        // a good fix is enough: keep GPS at low power for true north while the compass shows, otherwise stop it
+        if loc.horizontalAccuracy >= 0 && loc.horizontalAccuracy <= 100 {
+            if wantsHeading { manager.desiredAccuracy = kCLLocationAccuracyThreeKilometers } else { manager.stopUpdatingLocation() }
+        }
         if Date().timeIntervalSince(lastGeocode) > 120 {
             lastGeocode = Date()
             geocoder.reverseGeocodeLocation(loc) { [weak self] marks, _ in

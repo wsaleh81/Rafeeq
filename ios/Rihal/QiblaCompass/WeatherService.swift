@@ -5,7 +5,7 @@ import Combine
 /// Current temperature for the chip on the Qibla screen. Needs internet; the last result is cached for offline use.
 /// Source: Open-Meteo (no key). Kept behind this one class so it can be swapped for Apple WeatherKit later.
 final class WeatherService: ObservableObject {
-    struct Snapshot: Codable { var tempC: Double; var code: Int; var isDay: Bool; var updated: Date; var lat: Double; var lon: Double }
+    struct Snapshot: Codable { var tempC: Double; var code: Int; var isDay: Bool; var updated: Date; var lat: Double; var lon: Double; var humidity: Double? = nil }
 
     @Published var snapshot: Snapshot?
     @Published var loading = false
@@ -19,10 +19,10 @@ final class WeatherService: ObservableObject {
     /// Refresh when the data is older than 15 minutes or you moved more than 20 km.
     func refresh(lat: Double, lon: Double, force: Bool = false) {
         if inflight { return }
-        if !force, let s = snapshot,
+        if !force, let s = snapshot, s.humidity != nil,
            Date().timeIntervalSince(s.updated) < 900,
            QiblaMath.haversineKm(s.lat, s.lon, lat, lon) < 20 { return }
-        guard let url = URL(string: "https://api.open-meteo.com/v1/forecast?latitude=\(String(format: "%.2f", lat))&longitude=\(String(format: "%.2f", lon))&current=temperature_2m,weather_code,is_day&timezone=auto") else { return }
+        guard let url = URL(string: "https://api.open-meteo.com/v1/forecast?latitude=\(String(format: "%.2f", lat))&longitude=\(String(format: "%.2f", lon))&current=temperature_2m,relative_humidity_2m,weather_code,is_day&timezone=auto") else { return }
         inflight = true; loading = true
         var req = URLRequest(url: url); req.timeoutInterval = 10
         URLSession.shared.dataTask(with: req) { [weak self] data, _, _ in
@@ -32,7 +32,8 @@ final class WeatherService: ObservableObject {
                let c = j["current"] as? [String: Any],
                let t = c["temperature_2m"] as? Double {
                 snap = Snapshot(tempC: t, code: (c["weather_code"] as? Int) ?? 0, isDay: ((c["is_day"] as? Int) ?? 1) == 1,
-                                updated: Date(), lat: lat, lon: lon)
+                                updated: Date(), lat: lat, lon: lon,
+                                humidity: c["relative_humidity_2m"] as? Double)
             }
             DispatchQueue.main.async {
                 guard let self else { return }

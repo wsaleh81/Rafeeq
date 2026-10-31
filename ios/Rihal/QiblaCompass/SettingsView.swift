@@ -229,15 +229,6 @@ struct SettingsView: View {
                                 : L("Next to each prayer: the alarm button plays the adhan, the bell sends a notification without it."))
                         .font(.sys(size: 12)).foregroundStyle(Theme.muted).sideAligned().padding(.horizontal, 6)
 
-                    header(L("compass"))
-                    group {
-                        HStack(spacing: 14) {
-                            icon("hand.draw")
-                            Toggle(L("Preview mode (turn dial by hand)"), isOn: $model.previewMode).tint(Theme.mintDeep)
-                                .font(.sys(size: 17)).foregroundStyle(Theme.ink)
-                        }.frame(minHeight: 56)
-                    }
-
                     header(L("units"))
                     group {
                         HStack(spacing: 14) {

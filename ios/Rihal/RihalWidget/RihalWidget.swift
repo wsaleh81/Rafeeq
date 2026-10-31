@@ -290,7 +290,7 @@ struct SmallView: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.6)
                         .frame(maxWidth: 84)
-                    Text("\(n.prayer.english) · \(shortTime(n.date))")
+                    Text(shortTime(n.date))   // time only, so the line stays inside the ring
                         .font(.system(size: 10))
                         .foregroundStyle(RihalColor.inkDim)
                         .lineLimit(1)

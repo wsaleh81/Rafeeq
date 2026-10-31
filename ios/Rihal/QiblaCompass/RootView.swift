@@ -57,7 +57,15 @@ struct RootView: View {
         }
         .animation(.easeInOut(duration: 0.25), value: model.welcomed)
         .onChange(of: phase) { _, p in
-            if p == .active { model.refreshLocation(); model.rescheduleNotifications(); model.refreshWeather() }
+            if p == .active {
+                if let t = model.leftAt, Date().timeIntervalSince(t) > 300 { model.tab = 0 }
+                model.leftAt = nil
+                model.refreshLocation(); model.rescheduleNotifications(); model.refreshWeather()
+                if model.tab == 0 || model.tab == 1 { model.location.startHeading() }
+            } else if p == .background {
+                model.leftAt = Date()
+                model.location.pause()
+            }
         }
         .onChange(of: model.location.coordinate?.latitude) { _, _ in model.refreshWeather() }
         .onChange(of: model.notifKey) { _, _ in model.rescheduleNotifications() }

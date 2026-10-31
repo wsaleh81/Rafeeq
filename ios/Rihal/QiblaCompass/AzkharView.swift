@@ -160,6 +160,7 @@ struct AzkharCollectionsView: View {
     @State private var counts: [String: Int] = [:]
     @State private var flipped: AzkharCategory? = nil
     @State private var opened: AzkharCategory? = nil
+    @State private var showMore = false
 
     private let cols = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
 
@@ -195,6 +196,7 @@ struct AzkharCollectionsView: View {
             ScrollView {
                 LazyVGrid(columns: cols, spacing: 14) {
                     ForEach(AzkharCategory.allCases) { c in tile(c) }
+                    moreTile
                 }
                 .padding(.horizontal, 20).padding(.vertical, 16)
             }
@@ -204,6 +206,35 @@ struct AzkharCollectionsView: View {
         .fullScreenCover(item: $opened, onDismiss: { withAnimation(.easeInOut(duration: 0.35)) { flipped = nil } }) { c in
             AzkharDetailView(cat: c, counts: $counts, onClose: { opened = nil })
         }
+        .fullScreenCover(isPresented: $showMore) {
+            MoreAzkarView(counts: $counts, onClose: { showMore = false })
+        }
+    }
+
+    /// Sixth card: opens the 24 more sections (provision duas and the rest of Hisn al-Muslim)
+    private var moreTile: some View {
+        Button {
+            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+            showMore = true
+        } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("📚").font(.system(size: 28))
+                    .frame(width: 52, height: 52)
+                    .background(Theme.mintDeep.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                Spacer(minLength: 8)
+                Text(MoreAzkar.title(langID)).font(.sys(size: 19, weight: .bold, design: Theme.design)).foregroundStyle(Theme.ink)
+                    .lineLimit(1).minimumScaleFactor(0.8)
+                HStack {
+                    Spacer()
+                    Text("\(MoreAzkar.groups.count)").font(.sys(size: 13, weight: .bold, design: .rounded)).foregroundStyle(Theme.muted)
+                }
+            }
+            .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 168)
+            .background(Theme.card, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Theme.line, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 
     private func tile(_ c: AzkharCategory) -> some View {

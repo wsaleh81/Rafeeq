@@ -37,6 +37,9 @@ struct PrayerView: View {
         let counted = r.all.filter { $0.prayer.isPrayer }
         let next = counted.first { $0.date > now }
         let prev = counted.last { $0.date <= now }
+        // after sunrise the Fajr time is over: the card shows "الصبح" (morning) from sunrise until Dhuhr
+        let cur = r.all.last { $0.date <= now }
+        let nowEv = cur?.prayer == .sunrise ? cur : prev
         let shown = Calendar.current.date(byAdding: .day, value: dayOffset, to: now) ?? now
         let day = dayOffset == 0 ? r.today
             : PrayerCalculator.events(around: shown, lat: p.lat, lon: p.lon, timeZone: p.timeZone,
@@ -48,7 +51,7 @@ struct PrayerView: View {
         let rowsView = VStack(spacing: 8) {
             ForEach(Prayer.allCases) { pr in
                 let t = day[pr]
-                let isNow = dayOffset == 0 && prev?.prayer == pr && t == prev?.date
+                let isNow = dayOffset == 0 && nowEv?.prayer == pr && t == nowEv?.date
                 let isNext = dayOffset == 0 && next?.prayer == pr && t == next?.date
                 row(pr, time: t, az: nil, past: dayOffset == 0 && !isNow && (t.map { $0 < now } ?? false),
                     isNow: isNow, isNext: isNext, fmt: fmt)
@@ -65,7 +68,7 @@ struct PrayerView: View {
                     HStack(alignment: .top, spacing: 16) {
                         VStack(alignment: .leading, spacing: 0) {
                             banner(now: now, place: p).padding(.top, 10)
-                            hero(next: next, prev: prev, now: now, fmt: fmt).padding(.top, 10)
+                            hero(next: next, prev: prev, nowEv: nowEv, now: now, fmt: fmt).padding(.top, 10)
                             if let middle { middle }
                         }
                         .frame(maxWidth: .infinity)
@@ -80,7 +83,7 @@ struct PrayerView: View {
                     .environment(\.layoutDirection, .leftToRight)
                 } else {
                     banner(now: now, place: p).padding(.top, 10)
-                    hero(next: next, prev: prev, now: now, fmt: fmt).padding(.top, 10)
+                    hero(next: next, prev: prev, nowEv: nowEv, now: now, fmt: fmt).padding(.top, 10)
                     if let middle { middle }
                     rowsView.padding(.top, 12)
                     footer.padding(.top, 12)
@@ -105,31 +108,32 @@ struct PrayerView: View {
     // MARK: header
 
     private func header(_ d: Date, _ p: Place) -> some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 1) {
                 Text(fmtDate(d, p.timeZone, dayOffset == 0 ? "EEEEdMMMM" : "EEEEdMMMMyyyy"))
-                    .font(.sys(size: 22, weight: .heavy, design: Theme.design)).foregroundStyle(Theme.ink)
-                    .minimumScaleFactor(0.8).lineLimit(1)
+                    .font(.sys(size: 17, weight: .heavy, design: Theme.design)).foregroundStyle(Theme.ink)
+                    .minimumScaleFactor(0.75).lineLimit(1)
                 Text(hijri(d, p.timeZone)).foregroundStyle(Color(hex: 0x7AD0FF))
-                    .font(.sys(size: 14, weight: .semibold)).lineLimit(1)
+                    .font(.sys(size: 13, weight: .semibold)).lineLimit(1).minimumScaleFactor(0.8)
             }
             Spacer(minLength: 8)
-            HStack(spacing: 8) {
+            HStack(spacing: 5) {
                 // previous day first: on the left in English, on the right in Arabic (arrows point the reading direction's way)
                 navButton(AppLang.current.isRTL ? "chevron.right" : "chevron.left") { dayOffset -= 1 }
                 navButton(AppLang.current.isRTL ? "chevron.left" : "chevron.right") { dayOffset += 1 }
             }
         }
-        .padding(.leading, 16).padding(.trailing, 10).padding(.vertical, 12)
+        .padding(.leading, 12).padding(.trailing, 8).padding(.vertical, 7)
         .frame(maxWidth: .infinity)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(Theme.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .padding(.top, 8)
     }
 
     private func navButton(_ icon: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: icon).font(.sys(size: 15, weight: .bold)).foregroundStyle(Theme.muted)
-                .frame(width: 38, height: 38).background(Theme.card, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            Image(systemName: icon).font(.sys(size: 12, weight: .bold)).foregroundStyle(Theme.muted)
+                .frame(width: 28, height: 28).background(Theme.card, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).stroke(Theme.line, lineWidth: 1))
         }.buttonStyle(.plain)
     }
 
@@ -245,22 +249,27 @@ struct PrayerView: View {
 
     // MARK: hero
 
-    private func hero(next: PrayerEvent?, prev: PrayerEvent?, now: Date, fmt: DateFormatter) -> some View {
+    private func hero(next: PrayerEvent?, prev: PrayerEvent?, nowEv: PrayerEvent?, now: Date, fmt: DateFormatter) -> some View {
         let frac: Double = {
             guard let n = next, let p = prev else { return 0 }
             return max(0.02, min(1, now.timeIntervalSince(p.date) / n.date.timeIntervalSince(p.date)))
         }()
-        return HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 5) {
-                Text(L("NOW")).font(.sys(size: 10, weight: .heavy)).foregroundStyle(Theme.onAccent)
-                    .padding(.horizontal, 8).padding(.vertical, 2).background(Theme.mint, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                HStack(spacing: 8) {
-                    Image(systemName: prev?.prayer.symbol ?? "clock").font(.sys(size: 15, weight: .semibold)).foregroundStyle(Theme.mint)
-                    Text(prev?.prayer.name ?? "—").font(.sys(size: 17, weight: .heavy, design: Theme.design)).foregroundStyle(Theme.ink)
+        let nowName: String = {
+            guard let e = nowEv else { return "—" }
+            return e.prayer == .sunrise ? (Loc.ar ? "الصبح" : L("Morning")) : e.prayer.name
+        }()
+        let ring = 78 * min(Theme.textScale, 1.4)
+        return HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    Text(L("NOW")).font(.sys(size: 10, weight: .heavy)).foregroundStyle(Theme.onAccent)
+                        .padding(.horizontal, 7).padding(.vertical, 2).background(Theme.mint, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    Image(systemName: nowEv?.prayer.symbol ?? "clock").font(.sys(size: 13, weight: .semibold)).foregroundStyle(Theme.mint)
+                    Text(nowName).font(.sys(size: 15, weight: .heavy, design: Theme.design)).foregroundStyle(Theme.ink)
                         .lineLimit(1).minimumScaleFactor(0.7)
                 }
-                Text(prev.map { fmt.string(from: $0.date) } ?? "--:--")
-                    .font(.sys(size: 24, weight: .heavy, design: Theme.design)).monospacedDigit().foregroundStyle(Theme.ink)
+                Text(nowEv.map { fmt.string(from: $0.date) } ?? "--:--")
+                    .font(.sys(size: 20, weight: .heavy, design: Theme.design)).monospacedDigit().foregroundStyle(Theme.ink)
                     .minimumScaleFactor(0.7).lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -268,28 +277,29 @@ struct PrayerView: View {
             weatherBlock
 
             ZStack {
-                Circle().stroke(Theme.tile, lineWidth: 7)
+                Circle().stroke(Theme.tile, lineWidth: 5)
                 Circle().trim(from: 0, to: frac)
                     .stroke(LinearGradient(colors: [Theme.mint, Theme.mintDeep], startPoint: .topLeading, endPoint: .bottomTrailing),
-                            style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                            style: StrokeStyle(lineWidth: 5, lineCap: .round))
                     .rotationEffect(.degrees(-90))
-                VStack(spacing: 3) {
-                    HStack(spacing: 4) {
-                        Image(systemName: next?.prayer.symbol ?? "clock").font(.sys(size: 11, weight: .bold)).foregroundStyle(Theme.sunOrange)
-                        Text(Loc.ar ? "\(next?.prayer.name ?? "—") بعد" : Loc.f("{0} in", next?.prayer.name ?? "—")).font(.sys(size: 12, weight: .heavy)).foregroundStyle(Theme.ink).lineLimit(1).minimumScaleFactor(0.7)
+                VStack(spacing: 1) {
+                    HStack(spacing: 3) {
+                        Image(systemName: next?.prayer.symbol ?? "clock").font(.sys(size: 9, weight: .bold)).foregroundStyle(Theme.sunOrange)
+                        Text(Loc.ar ? "\(next?.prayer.name ?? "—") بعد" : Loc.f("{0} in", next?.prayer.name ?? "—")).font(.sys(size: 10, weight: .heavy)).foregroundStyle(Theme.ink).lineLimit(1).minimumScaleFactor(0.7)
                     }
                     Text(next.map { counter($0.date.timeIntervalSince(now)) } ?? "--:--:--")
-                        .font(.sys(size: 17, weight: .heavy, design: Theme.design)).monospacedDigit()
+                        .font(.sys(size: 13.5, weight: .heavy, design: Theme.design)).monospacedDigit()
                         .minimumScaleFactor(0.6).lineLimit(1).foregroundStyle(Theme.ink)
                         .contentTransition(.numericText(countsDown: true))
                     Text(next.map { Loc.ar ? "عند " + fmt.string(from: $0.date) : Loc.f("at {0}", fmt.string(from: $0.date)) } ?? L("Not available here"))
-                        .font(.sys(size: 11, weight: .heavy)).foregroundStyle(Theme.mint)
+                        .font(.sys(size: 9.5, weight: .heavy)).foregroundStyle(Theme.mint).lineLimit(1).minimumScaleFactor(0.7)
                 }
-                .padding(.horizontal, 10)
+                .padding(.horizontal, 7)
             }
-            .frame(width: 104 * min(Theme.textScale, 1.4), height: 104 * min(Theme.textScale, 1.4))
+            .frame(width: ring, height: ring)
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
-        .padding(10)
+        .padding(.horizontal, 10).padding(.vertical, 8)
         .background(Theme.card, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .shadow(color: .black.opacity(0.12), radius: 10, y: 5)
     }
@@ -301,15 +311,31 @@ struct PrayerView: View {
             guard let w else { return model.network.online ? "…" : "—" }
             return tempUnit == "f" ? "\(Int((w.tempC * 9 / 5 + 32).rounded()))°F" : "\(Int(w.tempC.rounded()))°C"
         }()
-        return VStack(spacing: 4) {
-            Image(systemName: w.map { WeatherService.symbol(code: $0.code, isDay: $0.isDay) } ?? (model.network.online ? "cloud" : "cloud.slash"))
-                .font(.sys(size: 24, weight: .bold)).symbolRenderingMode(.multicolor)
-            Text(text).font(.sys(size: 15, weight: .heavy, design: Theme.design)).monospacedDigit().foregroundStyle(Theme.ink)
-                .lineLimit(1).minimumScaleFactor(0.7)
+        let hum: String = {
+            if let h = w?.humidity { return "\(Int(h.rounded()))%" }
+            return w == nil && model.network.online ? "…" : "—"
+        }()
+        // two boxes, centred between the current prayer and the ring: temperature, then humidity
+        return HStack(spacing: 6) {
+            VStack(spacing: 3) {
+                Image(systemName: w.map { WeatherService.symbol(code: $0.code, isDay: $0.isDay) } ?? (model.network.online ? "cloud" : "cloud.slash"))
+                    .font(.sys(size: 17, weight: .bold)).symbolRenderingMode(.multicolor)
+                Text(text).font(.sys(size: 12.5, weight: .heavy, design: Theme.design)).monospacedDigit().foregroundStyle(Theme.ink)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .frame(minWidth: 44).padding(.horizontal, 6).padding(.vertical, 6)
+            .background(Theme.tile, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .accessibilityElement(children: .ignore).accessibilityLabel("Weather \(text)")
+            VStack(spacing: 3) {
+                Image(systemName: "drop.fill").font(.sys(size: 17, weight: .bold)).foregroundStyle(Color(hex: 0x5AC8FA))
+                Text(hum).font(.sys(size: 12.5, weight: .heavy, design: Theme.design)).monospacedDigit().foregroundStyle(Theme.ink)
+                    .lineLimit(1).minimumScaleFactor(0.7)
+            }
+            .frame(minWidth: 44).padding(.horizontal, 6).padding(.vertical, 6)
+            .background(Theme.tile, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .accessibilityElement(children: .ignore).accessibilityLabel(Loc.ar ? "الرطوبة \(hum)" : "Humidity \(hum)")
         }
-        .padding(.horizontal, 8).padding(.vertical, 10)
-        .background(Theme.tile, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .accessibilityLabel("Weather \(text)")
+        .fixedSize()
     }
 
     // MARK: rows

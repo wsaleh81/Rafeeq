@@ -7,12 +7,9 @@ struct QiblaView: View {
     @AppStorage("compassStyle") private var compassStyle = "classic"
     @EnvironmentObject var model: AppModel
     @State private var shown: Double = 0
-    @State private var preview: Double = 0
     @State private var wasAligned = false
 
-    private var target: Double? {
-        model.previewMode ? preview : model.location.heading
-    }
+    private var target: Double? { model.location.heading }
     private var delta: Double? {
         guard let t = target else { return nil }
         return QiblaMath.diff(model.qibla, t)
@@ -37,8 +34,7 @@ struct QiblaView: View {
                         .padding(.horizontal, 10)
                     statusCard
                 }
-                if model.previewMode { previewControls }
-                else if let note = sensorNote { Text(note).font(.footnote).foregroundStyle(Theme.muted).padding(.top, 12).multilineTextAlignment(.center) }
+                if let note = sensorNote { Text(note).font(.footnote).foregroundStyle(Theme.muted).padding(.top, 12).multilineTextAlignment(.center) }
             }
             .padding(.horizontal, embedded ? 0 : 20)
             .padding(.bottom, embedded ? 14 : 110)
@@ -83,8 +79,8 @@ struct QiblaView: View {
         Group {
             if embedded { inner } else { ScrollView { inner }.scrollIndicators(.hidden) }
         }
-        .onAppear { UIApplication.shared.isIdleTimerDisabled = true; follow() }
-        .onDisappear { UIApplication.shared.isIdleTimerDisabled = false }
+        .onAppear { UIApplication.shared.isIdleTimerDisabled = true; model.location.startHeading(); follow() }
+        .onDisappear { UIApplication.shared.isIdleTimerDisabled = false; model.location.stopHeading() }
         .onChange(of: target) { _, _ in follow() }
         .onChange(of: aligned) { _, now in
             if now && !wasAligned { UINotificationFeedbackGenerator().notificationOccurred(.success) }
@@ -100,7 +96,7 @@ struct QiblaView: View {
 
     private var sensorNote: String? {
         let l = model.location
-        if !CLHeadingAvailable { return L("This device has no compass. Turn on preview mode in Settings.") }
+        if !CLHeadingAvailable { return Loc.ar ? "هذا الجهاز بلا بوصلة." : L("This device has no compass.") }
         if l.denied { return L("Location access is off. Turn it on in Settings so the compass can point to true north.") }
         if l.heading == nil { return L("Starting the compass…") }
         if l.headingAccuracy < 0 || l.headingAccuracy > 25 { return L("Compass needs calibration. Move your phone in a figure of eight.") }
@@ -254,13 +250,6 @@ struct QiblaView: View {
         .background(Theme.tile, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 
-    private var previewControls: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(L("PREVIEW HEADING")).font(.sys(size: 11, weight: .bold)).tracking(0.8).foregroundStyle(Theme.muted)
-            Slider(value: $preview, in: 0...359, step: 1).tint(Theme.mintDeep)
-        }
-        .padding(.top, 14)
-    }
 }
 
 

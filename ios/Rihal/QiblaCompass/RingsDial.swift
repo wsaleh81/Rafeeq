@@ -41,9 +41,9 @@ struct RingsDial: View {
                 .frame(width: s, height: s)
                 .rotationEffect(.degrees(-heading)) }
 
-                // Islamic-style arrow in the centre points to the Qibla (not the navigation icon)
-                IslamicArrow(aligned: aligned, dark: tint ?? Theme.mint, light: Theme.mintTint)
-                    .frame(width: s * 0.075, height: s * 0.23)
+                // a mihrab (prayer niche) arch in the centre; its top points to the Qibla. Gold, green when facing it.
+                MihrabNeedle(color: aligned ? Theme.ok : Theme.mint, line: s * 0.01)
+                    .frame(width: s * 0.1, height: s * 0.2133)
                     .rotationEffect(.degrees(toQibla))
 
                 // Kaaba marker on the outer ring
@@ -68,5 +68,39 @@ struct RingsDial: View {
         .accessibilityElement()
         .accessibilityLabel("Compass")
         .accessibilityValue(aligned ? "Facing the Qibla" : "Qibla is \(Int(QiblaMath.diff(qibla, heading).magnitude)) degrees away")
+    }
+}
+
+/// Mihrab arch for the Rings dial. Drawn in a box whose centre is the pivot (the arch sits a little above it).
+/// Same shape as the Android app: x from -15 to 15, y from -32 to 32 (bottom of the arch at 22).
+struct MihrabNeedle: View {
+    var color: Color
+    var line: CGFloat
+    var body: some View {
+        ZStack {
+            MihrabShape(inner: true).fill(color.opacity(0.4))
+            MihrabShape(inner: false).stroke(color, style: StrokeStyle(lineWidth: line, lineJoin: .round))
+        }
+    }
+}
+
+struct MihrabShape: Shape {
+    var inner: Bool
+    func path(in r: CGRect) -> Path {
+        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: r.midX + x / 30 * r.width, y: r.midY + y / 64 * r.height) }
+        var p = Path()
+        if inner {
+            p.move(to: pt(-7.5, 22)); p.addLine(to: pt(-7.5, 0))
+            p.addQuadCurve(to: pt(0, -16), control: pt(-7.5, -9))
+            p.addQuadCurve(to: pt(7.5, 0), control: pt(7.5, -9))
+            p.addLine(to: pt(7.5, 22))
+        } else {
+            p.move(to: pt(-15, 22)); p.addLine(to: pt(-15, -5))
+            p.addQuadCurve(to: pt(0, -32), control: pt(-15, -20))
+            p.addQuadCurve(to: pt(15, -5), control: pt(15, -20))
+            p.addLine(to: pt(15, 22))
+        }
+        p.closeSubpath()
+        return p
     }
 }
