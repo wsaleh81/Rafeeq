@@ -79,7 +79,7 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:poin
 hr{border:0;border-top:1px solid var(--line);margin:12px 0}
 .ahsub{direction:rtl;text-align:right;font-weight:800;color:var(--deep);font-size:.95rem;margin:16px 4px 8px}
 .dnote{direction:rtl;text-align:right;font-size:calc(.85rem*var(--as));line-height:1.7;color:var(--muted);margin-top:8px}
-.aci .msvg{width:54px;height:54px;color:var(--accent)}
+.aci .msvg{width:46px;height:46px;color:var(--accent)}
 .acat.sm{min-height:118px;padding:14px 10px}.acat.sm .act{font-size:.98rem;text-align:center}
 .dref{font-size:.75rem;font-weight:600;color:var(--deep);margin-top:10px}
 .dfoot{display:flex;align-items:center;gap:12px;margin-top:12px}.dbar{flex:1;height:8px;background:var(--tile);border-radius:4px;overflow:hidden}.dbar i{display:block;height:100%;background:var(--accent);border-radius:4px;transition:width .2s}
