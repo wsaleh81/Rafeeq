@@ -676,7 +676,7 @@ function viewSettings() {
     + irow("sunrise", L("Sunrise alert"), tog("sunriseAlert", S.sunriseAlert)))}
   <div class="sfoot">${ar() ? "بجانب كل صلاة: زر المنبّه يشغّل الأذان، وزر الجرس يرسل تنبيهًا بدون أذان." : L("Next to each prayer: the alarm button plays the adhan, the bell sends a notification without it.")}</div>
   ${sgroup("units", irow("temp", L("Temperature"), sel("temp", [["c", L("Celsius (°C)")], ["f", L("Fahrenheit (°F)")]], S.temp)))}
-  <div class="card sbox" style="margin-top:22px">${irow("info", L("About"), `<span class="muted">Rihal 1.0</span>`)}<a class="srow irow" href="${PRIVACY_URL}" target="_blank" rel="noopener"><span class="sic"></span><div class="sl">${PRIVACY_LABEL[S.lang] || "Privacy policy"}</div><span aria-hidden="true">↗</span></a></div>
+  <div class="card sbox" style="margin-top:22px">${irow("info", L("About"), `<span class="muted">Rihal 1.0${__BUILD__ ? ` (${__BUILD__})` : ""}</span>`)}<a class="srow irow" href="${PRIVACY_URL}" target="_blank" rel="noopener"><span class="sic"></span><div class="sl">${PRIVACY_LABEL[S.lang] || "Privacy policy"}</div><span aria-hidden="true">↗</span></a></div>
   <div class="sfoot center">${esc(L("Qibla and prayer times are calculated on this device. Your approximate location is sent only when you look up mosques, weather or cities."))}</div>`;
 }
 

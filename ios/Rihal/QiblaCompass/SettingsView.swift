@@ -245,7 +245,7 @@ struct SettingsView: View {
                     }
 
                     group {
-                        row("info.circle", "About", "Rihal 1.0", chevron: false)
+                        row("info.circle", "About", "Rihal \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0") (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"))", chevron: false)
                     }
                     .padding(.top, 14)
 
