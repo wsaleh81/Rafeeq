@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_square_name">رحّال · الصلاة القادمة</string>
+    <string name="widget_square_desc">الصلاة القادمة مع حلقة العد التنازلي</string>
+    <string name="widget_rect_name">رحّال · الصلاة والمسجد</string>
+    <string name="widget_rect_desc">موعد الصلاة القادمة وأقرب مسجد</string>
+</resources>

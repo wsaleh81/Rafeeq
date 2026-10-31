@@ -4,4 +4,8 @@
     <string name="title_activity_main">Rihal</string>
     <string name="package_name">com.wael.rihal</string>
     <string name="custom_url_scheme">com.wael.rihal</string>
+    <string name="widget_square_name">Rihal · Next prayer</string>
+    <string name="widget_square_desc">Next prayer with a countdown ring</string>
+    <string name="widget_rect_name">Rihal · Prayer and mosque</string>
+    <string name="widget_rect_desc">Next prayer time and the nearest mosque</string>
 </resources>

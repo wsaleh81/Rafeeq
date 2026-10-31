@@ -123,6 +123,29 @@ let shown = 0, previewDeg = 0, dialEls = null, wasAligned = false;
 // Android: native fused compass (CompassPlugin.java) does tilt compensation, declination and smoothing.
 const NativeCompass = Capacitor.getPlatform() === "android" ? registerPlugin("Compass") : null;
 let nativeOn = false;
+// Android home-screen widgets (RihalWidgetPlugin.java): the app hands over the coming prayer times and the nearest mosque.
+const NativeWidget = Capacitor.getPlatform() === "android" ? registerPlugin("RihalWidget") : null;
+let widgetSig = "", widgetTimer = null;
+function pushWidget() {
+  if (!NativeWidget) return;
+  clearTimeout(widgetTimer);
+  widgetTimer = setTimeout(async () => {
+    const p = S.place, now = Date.now(), key = p.lat.toFixed(2) + "," + p.lon.toFixed(2);
+    const ev = prayerEvents(now, p.lat, p.lon, p.tz, method(), S.hanafi, offs(), 7).all.filter(e => e.prayer !== "sunrise");
+    let list = mosqueState.key === key ? mosqueState.list : null;
+    if (!list || !list.length) { try { list = JSON.parse(localStorage.getItem("rafeeq_m_" + key) || "null"); } catch (e) { list = null; } }
+    const m = list && list[0];
+    const data = {
+      lang: S.lang, city: p.name,
+      events: ev.map(e => ({ t: e.date, ar: PNAME_AR[e.prayer], name: ar() ? PNAME_EN[e.prayer] : pName(e.prayer), hm: clock(e.date, p.tz) })),
+      mosque: m ? { name: m.name, d: Math.round(m.d) } : null,
+    };
+    const sig = JSON.stringify(data);
+    if (sig === widgetSig) return;
+    widgetSig = sig;
+    try { await NativeWidget.update({ data: sig }); } catch (e) {}
+  }, 800);
+}
 async function pushLocation() {
   if (!NativeCompass || !S.place) return;
   try { await NativeCompass.setLocation({ lat: S.place.lat, lon: S.place.lon, alt: 0 }); } catch (e) {}
@@ -226,7 +249,7 @@ async function useGPS(silent) {
     } else if (near.d >= 40) { iso = near.c.iso; }
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || near.c.tz;
     S.place = { name, country, lat, lon, tz, iso, gps: true }; S.gps = true; save(); pushLocation();
-    gpsState = "ok"; gpsFixAt = Date.now(); weather = null; loadWeather(); scheduleAlerts(); render(); if (S.tab === 1) loadMosques();
+    gpsState = "ok"; gpsFixAt = Date.now(); weather = null; loadWeather(); scheduleAlerts(); render(); if (S.tab === 1 || NativeWidget) loadMosques();
   } catch (e) { gpsState = "denied"; render(); }
 }
 let gpsState = "idle", gpsAcc = null;
@@ -511,6 +534,7 @@ async function loadMosques(force) {
     try { localStorage.setItem("rafeeq_m_" + key, JSON.stringify(mosqueState.list)); } catch (e) {}
   } else mosqueState.failed = !mosqueState.list.length;
   mosqueState.loading = false; if (S.tab === 1) render();
+  pushWidget();
 }
 
 /* ----- Azkhar tab ----- */
@@ -595,7 +619,7 @@ function remoteSearch(q) {
 }
 function renderSheet() { const el = $("#sheet"); el.innerHTML = dirTarget ? dirSheet() : pickerOpen ? viewPicker() : ""; }
 function choose(c) {
-  S.place = { ...c }; S.gps = false; save(); pushLocation(); weather = null; pickerOpen = null; renderSheet(); loadWeather(); scheduleAlerts(); render(); if (S.tab === 1) loadMosques();
+  S.place = { ...c }; S.gps = false; save(); pushLocation(); weather = null; pickerOpen = null; renderSheet(); loadWeather(); scheduleAlerts(); render(); if (S.tab === 1 || NativeWidget) loadMosques();
 }
 
 /* ---------- render & events ---------- */
@@ -610,6 +634,7 @@ function render() {
   if (S.tab === 3) mushafAfter(ar(), L);
   if (S.tab === 1) loadMosques();
   v.scrollTop = st;
+  pushWidget();
 }
 function vibr() { try { navigator.vibrate && navigator.vibrate(12); } catch (e) {} }
 const ACT = {
@@ -678,7 +703,13 @@ function boot() {
   setInterval(() => { if (S.tab === 0) tickHome(); }, 1000);
   setInterval(() => { if (S.tab === 0) { const p = S.place; $("#sunlayer") && ($("#sunlayer").innerHTML = sunLayerSVG(sunInfo(p.lat, p.lon, new Date()))); } }, 60000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { scheduleAlerts(); render(); } });
-  if (!S.welcomed) welcome(); else { scheduleAlerts(); if (S.gps) useGPS(true); }
+  if (!S.welcomed) welcome(); else { scheduleAlerts(); if (S.gps) useGPS(true); else if (NativeWidget) loadMosques(); }
+  if (NativeWidget) {
+    // a tap on the widget opens Prayer Times (0) or Mosques (1)
+    const go = t => { if (t == null || t < 0) return; S.tab = t; azkarCat = null; save(); render(); };
+    NativeWidget.addListener("openTab", o => go(o.tab));
+    NativeWidget.getLaunchTab().then(o => go(o.tab)).catch(() => {});
+  }
   if ("serviceWorker" in navigator && !nativeOK() && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 boot();
