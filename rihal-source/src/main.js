@@ -561,8 +561,11 @@ async function loadMosques(force) {
 const MORE_T = { ar: "أذكار أخرى", en: "More azkar", tr: "Diğer zikirler", fr: "Autres adhkar", it: "Altri adhkar", de: "Weitere Adhkar", nl: "Meer adhkar", es: "Más adhkar", ur: "مزید اذکار", ta: "மேலும் திக்ர்கள்", ru: "Другие азкары" };
 const moreT = () => MORE_T[S.lang] || MORE_T.en;
 const isMore = () => typeof azkarCat === "string";
+// a person in sujood on a prayer rug (no emoji shows a Muslim praying)
+const MICON = { sujood: '<svg class="msvg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="50" width="58" height="5" rx="2" fill="currentColor" fill-opacity=".45" stroke="none"/><circle cx="13" cy="44.5" r="5" fill="currentColor" stroke="none"/><path d="M19 41 Q27 25 40 27 L45 46 L58 48" stroke-width="8"/><path d="M21 42 L25 49" stroke-width="5"/></svg>' };
+const mIcon = ic => (ic.startsWith("svg:") ? MICON[ic.slice(4)] || "" : ic);
 function viewMoreGrid() {
-  const cards = MORE.map((g, i) => `<button class="acat sm" data-act="mcat" data-i="${i}"><span class="aci">${g.icon}</span><span class="act">${ar() ? g.ar : esc(g.en)}</span>${ar() ? "" : `<span class="ar act2">${g.ar}</span>`}<small>${g.items.length}</small></button>`).join("");
+  const cards = MORE.map((g, i) => `<button class="acat sm" data-act="mcat" data-i="${i}"><span class="aci">${mIcon(g.icon)}</span><span class="act">${ar() ? g.ar : esc(g.en)}</span>${ar() ? "" : `<span class="ar act2">${g.ar}</span>`}<small>${g.items.length}</small></button>`).join("");
   return `<div class="ahead"><button class="iconbtn" data-act="back">${rtl() ? I.right : I.left}</button><div class="atitle">${moreT()}</div></div><div class="agrid">${cards}</div>
   <div class="foot">${ar() ? "الأذكار: حصن المسلم" : L("Quran: Tanzil · Adhkar: Hisn al-Muslim")}</div>`;
 }
