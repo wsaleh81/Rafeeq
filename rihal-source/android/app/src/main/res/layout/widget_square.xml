@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Square widget. The ring scales with the widget; the text block is fitted inside the ring
+     (padding set from the widget size in RihalWidgets) and every line auto-sizes. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/w_root"
     android:layout_width="match_parent"
@@ -10,52 +12,75 @@
         android:id="@+id/w_ring"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
+        android:contentDescription="@null"
         android:scaleType="fitCenter"
-        android:src="@drawable/widget_ring_preview"
-        android:contentDescription="@null" />
+        android:src="@drawable/widget_ring_preview" />
 
     <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:gravity="center_horizontal"
-        android:orientation="vertical">
+        android:id="@+id/w_inner"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="22dp">
 
         <TextView
             android:id="@+id/w_label"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:textSize="9sp"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="0.16"
+            android:autoSizeMaxTextSize="16sp"
+            android:autoSizeMinTextSize="7sp"
+            android:autoSizeTextType="uniform"
+            android:gravity="center"
             android:letterSpacing="0.16"
+            android:maxLines="1"
             android:text="NEXT"
-            android:textColor="#A9B2CC"
-            android:textSize="9sp" />
+            android:textColor="#A9B2CC" />
 
         <TextView
             android:id="@+id/w_ar"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:textSize="19sp"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="0.30"
+            android:autoSizeMaxTextSize="40sp"
+            android:autoSizeMinTextSize="11sp"
+            android:autoSizeTextType="uniform"
+            android:gravity="center"
+            android:maxLines="1"
             android:text="الظهر"
             android:textColor="#F1D9A2"
-            android:textSize="19sp"
             android:textStyle="bold" />
 
         <Chronometer
             android:id="@+id/w_chrono"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:textSize="19sp"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="0.32"
+            android:autoSizeMaxTextSize="42sp"
+            android:autoSizeMinTextSize="11sp"
+            android:autoSizeTextType="uniform"
             android:fontFeatureSettings="tnum"
-            android:textColor="#F5F0E4"
-            android:textSize="19sp" />
+            android:gravity="center"
+            android:maxLines="1"
+            android:textColor="#F5F0E4" />
 
         <TextView
             android:id="@+id/w_sub"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
+            android:textSize="11sp"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="0.20"
+            android:autoSizeMaxTextSize="22sp"
+            android:autoSizeMinTextSize="8sp"
+            android:autoSizeTextType="uniform"
+            android:fontFeatureSettings="tnum"
+            android:gravity="center"
             android:maxLines="1"
-            android:maxWidth="96dp"
-            android:text="11:47"
-            android:textColor="#A9B2CC"
-            android:textSize="11sp" />
+            android:text="11:31"
+            android:textColor="#A9B2CC" />
     </LinearLayout>
 </FrameLayout>

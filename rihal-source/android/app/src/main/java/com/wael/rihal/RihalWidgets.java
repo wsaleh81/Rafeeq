@@ -15,6 +15,7 @@ import android.graphics.Paint;
 import android.graphics.RectF;
 import android.graphics.SweepGradient;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.SystemClock;
 import android.view.View;
 import android.widget.RemoteViews;
@@ -95,7 +96,7 @@ final class RihalWidgets {
         long now = System.currentTimeMillis();
         int[] sq = m.getAppWidgetIds(new ComponentName(c, RihalSquareWidget.class));
         int[] rc = m.getAppWidgetIds(new ComponentName(c, RihalRectWidget.class));
-        for (int id : sq) m.updateAppWidget(id, square(c, d, now));
+        for (int id : sq) m.updateAppWidget(id, fitInsideRing(c, square(c, d, now), m.getAppWidgetOptions(id), progress(d, now)));
         for (int id : rc) m.updateAppWidget(id, rect(c, d, now));
         schedule(c, d, now, sq.length + rc.length > 0);
     }
@@ -140,7 +141,6 @@ final class RihalWidgets {
         RemoteViews v = new RemoteViews(c.getPackageName(), R.layout.widget_square);
         Ev n = next(d, now);
         v.setTextViewText(R.id.w_label, d.ar() ? "التالية" : "NEXT");
-        v.setImageViewBitmap(R.id.w_ring, ring(progress(d, now)));
         if (n != null) {
             v.setTextViewText(R.id.w_ar, n.ar);
             countdown(v, R.id.w_chrono, n, now, null);
@@ -151,6 +151,20 @@ final class RihalWidgets {
             v.setTextViewText(R.id.w_sub, d.ar() ? "افتح التطبيق" : "Open Rihal");
         }
         v.setOnClickPendingIntent(R.id.w_root, open(c, 0));
+        return v;
+    }
+
+    /** Keep the text block inside the ring whatever size the widget is resized to. */
+    static RemoteViews fitInsideRing(Context c, RemoteViews v, Bundle o, float progress) {
+        int wDp = o != null ? o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0) : 0;
+        int hDp = o != null ? o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0) : 0;
+        if (wDp <= 0 || hDp <= 0) { v.setImageViewBitmap(R.id.w_ring, ring(progress, 240)); return v; }
+        float dp = c.getResources().getDisplayMetrics().density;
+        float w = (wDp - 16) * dp, h = (hDp - 16) * dp, side = Math.min(w, h);
+        int inset = Math.round(side * 0.2f);
+        int px = Math.round((w - side) / 2f) + inset, py = Math.round((h - side) / 2f) + inset;
+        v.setViewPadding(R.id.w_inner, px, py, px, py);
+        v.setImageViewBitmap(R.id.w_ring, ring(progress, Math.round(Math.max(160, Math.min(360, side))))); // sharp at any size
         return v;
     }
 
@@ -190,8 +204,7 @@ final class RihalWidgets {
     }
 
     /** Countdown ring: faint track plus a gold arc from the top, clockwise. */
-    static Bitmap ring(float progress) {
-        int size = 240;
+    static Bitmap ring(float progress, int size) {
         float stroke = size * 0.055f;
         Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Canvas cv = new Canvas(b);
