@@ -54,8 +54,8 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:maxWidth="96dp"
-            android:text="Dhuhr · 11:47"
+            android:text="11:47"
             android:textColor="#A9B2CC"
-            android:textSize="10sp" />
+            android:textSize="11sp" />
     </LinearLayout>
 </FrameLayout>

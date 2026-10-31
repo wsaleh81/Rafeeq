@@ -144,7 +144,7 @@ final class RihalWidgets {
         if (n != null) {
             v.setTextViewText(R.id.w_ar, n.ar);
             countdown(v, R.id.w_chrono, n, now, null);
-            v.setTextViewText(R.id.w_sub, n.name + " · " + n.hm);
+            v.setTextViewText(R.id.w_sub, n.hm); // time only, so the line stays inside the ring
         } else {
             v.setTextViewText(R.id.w_ar, "رحّال");
             v.setViewVisibility(R.id.w_chrono, View.GONE);
