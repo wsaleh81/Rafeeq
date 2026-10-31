@@ -448,16 +448,20 @@ function tickHome() {
   const r = prayerEvents(now, p.lat, p.lon, p.tz, method(), S.hanafi, offs());
   const counted = r.all.filter(e => e.prayer !== "sunrise");
   const next = counted.find(e => e.date > now), prev = [...counted].reverse().find(e => e.date <= now);
+  // after sunrise the Fajr time is over: the card shows "الصبح" (morning) from sunrise until Dhuhr
+  const cur = [...r.all].reverse().find(e => e.date <= now);
+  const nowEv = cur && cur.prayer === "sunrise" ? cur : prev;
+  const nowName = !nowEv ? "—" : nowEv.prayer === "sunrise" ? (ar() ? "الصبح" : L("Morning")) : pName(nowEv.prayer);
   const frac = next && prev ? Math.max(0.02, Math.min(1, (now - prev.date) / (next.date - prev.date))) : 0;
   const C = 2 * Math.PI * 46.5;
-  hero.innerHTML = `<div class="hn"><div class="hnr"><span class="hnt">${prev ? clock(prev.date, p.tz) : "--:--"}</span><span class="nowb">${L("NOW")}</span></div><div class="hnm"><span class="hic">${prev ? PI[prev.prayer] : I.clock}</span><b>${prev ? pName(prev.prayer) : "—"}</b></div></div>
+  hero.innerHTML = `<div class="hn"><div class="hnm"><span class="nowb">${L("NOW")}</span><span class="hic">${nowEv ? PI[nowEv.prayer] : I.clock}</span><b>${nowName}</b></div><span class="hnt">${nowEv ? clock(nowEv.date, p.tz) : "--:--"}</span></div>
     ${weatherBlock()}
     <div class="hrg"><svg viewBox="0 0 104 104"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--deep)"/></linearGradient></defs><circle cx="52" cy="52" r="46.5" fill="none" stroke="var(--tile)" stroke-width="7"/><circle cx="52" cy="52" r="46.5" fill="none" stroke="url(#rg)" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C * frac} ${C}" transform="rotate(-90 52 52)"/></svg>
       <div class="hrt"><div class="r1"><i>${next ? PI[next.prayer] : ""}</i>${next ? (ar() ? `${pName(next.prayer)} بعد` : F("{0} in", pName(next.prayer))) : "—"}</div><div class="r2t">${next ? cd(next.date - now) : "--:--:--"}</div><div class="r3">${next ? (ar() ? "عند " + clock(next.date, p.tz) : F("at {0}", clock(next.date, p.tz))) : L("Not available here")}</div></div></div>`;
   for (const k of PRAYERS) {
     const el = $("#r-" + k); if (!el) continue;
     const t = r.today[k];
-    const isNow = prayDay === 0 && prev && prev.prayer === k && prev.date === t, isNext = prayDay === 0 && next && next.prayer === k && next.date === t;
+    const isNow = prayDay === 0 && nowEv && nowEv.prayer === k && nowEv.date === t, isNext = prayDay === 0 && next && next.prayer === k && next.date === t;
     el.classList.toggle("now", !!isNow); el.classList.toggle("past", prayDay === 0 && !isNow && t != null && t < now);
     const ch = $("#rc-" + k); if (ch) ch.innerHTML = isNow ? `<i class="chip1 on">${L("NOW")}</i>` : isNext ? `<i class="chip1">${L("NEXT")}</i>` : "";
   }

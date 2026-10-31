@@ -144,7 +144,7 @@ body.inmush #view{padding:0;overflow:hidden}
 .bpill svg{width:13px;height:13px}.bpill.deep{color:var(--deep)}.bpill.solid{background:var(--accent);color:var(--on)}
 .hero2{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:8px 10px;margin-top:8px;background:var(--card);border-radius:20px;box-shadow:0 5px 10px rgba(0,0,0,.12)}
 .hn{min-width:0;display:flex;flex-direction:column;gap:2px;align-items:flex-start}.hnr{display:flex;align-items:center;gap:6px}.nowb{font-size:.62rem;font-weight:800;background:var(--accent);color:var(--on);border-radius:9px;padding:2px 8px}
-.hnm{display:flex;align-items:center;gap:6px;max-width:100%}.hnm b{font-size:.92rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hic{width:18px;height:18px;color:var(--accent);flex:none}.hic svg{width:100%;height:100%}
+.hnm{display:flex;align-items:center;gap:5px;max-width:100%}.hnm b{font-size:.92rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hic{width:18px;height:18px;color:var(--accent);flex:none}.hic svg{width:100%;height:100%}
 .hnt{font-size:1.15rem;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap}
 .wgrp{display:flex;gap:6px;justify-content:center}
 .wblk{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 7px;min-width:44px;background:var(--tile);border-radius:12px;flex:none}.wblk .wi{font-size:1.05rem;line-height:1}.wblk b{font-size:.8rem;font-weight:800;white-space:nowrap}
