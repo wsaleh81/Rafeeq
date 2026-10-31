@@ -450,7 +450,7 @@ function tickHome() {
   const next = counted.find(e => e.date > now), prev = [...counted].reverse().find(e => e.date <= now);
   const frac = next && prev ? Math.max(0.02, Math.min(1, (now - prev.date) / (next.date - prev.date))) : 0;
   const C = 2 * Math.PI * 46.5;
-  hero.innerHTML = `<div class="hn"><span class="nowb">${L("NOW")}</span><div class="hnm"><span class="hic">${prev ? PI[prev.prayer] : I.clock}</span><b>${prev ? pName(prev.prayer) : "—"}</b><span class="hnt">${prev ? clock(prev.date, p.tz) : "--:--"}</span></div></div>
+  hero.innerHTML = `<div class="hn"><div class="hnr"><span class="hnt">${prev ? clock(prev.date, p.tz) : "--:--"}</span><span class="nowb">${L("NOW")}</span></div><div class="hnm"><span class="hic">${prev ? PI[prev.prayer] : I.clock}</span><b>${prev ? pName(prev.prayer) : "—"}</b></div></div>
     ${weatherBlock()}
     <div class="hrg"><svg viewBox="0 0 104 104"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--deep)"/></linearGradient></defs><circle cx="52" cy="52" r="46.5" fill="none" stroke="var(--tile)" stroke-width="7"/><circle cx="52" cy="52" r="46.5" fill="none" stroke="url(#rg)" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C * frac} ${C}" transform="rotate(-90 52 52)"/></svg>
       <div class="hrt"><div class="r1"><i>${next ? PI[next.prayer] : ""}</i>${next ? (ar() ? `${pName(next.prayer)} بعد` : F("{0} in", pName(next.prayer))) : "—"}</div><div class="r2t">${next ? cd(next.date - now) : "--:--:--"}</div><div class="r3">${next ? (ar() ? "عند " + clock(next.date, p.tz) : F("at {0}", clock(next.date, p.tz))) : L("Not available here")}</div></div></div>`;
