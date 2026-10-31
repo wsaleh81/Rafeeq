@@ -24,7 +24,7 @@ const PALETTES = [
 /* ---------- settings store ---------- */
 const DEF = {
   lang: "ar", palette: "ocean", appearance: "auto", textSize: "1", bold: false, azkarSize: "1",
-  method: "kuwait", hanafi: false, showNow: true, off: {}, notif: true, remind: 0, sunriseAlert: false, muted: {},
+  method: "kuwait", hanafi: false, showNow: true, azMorning: true, azEvening: true, azPrayer: false, volKeys: true, off: {}, notif: true, remind: 0, sunriseAlert: false, muted: {},
   temp: "c", tab: 0, welcomed: false, compass: "classic", alarm: {}, fontID: "system", v: 2,
   place: { name: "Kuwait City", country: "Kuwait", lat: 29.3759, lon: 47.9774, tz: "Asia/Kuwait", iso: "KW" },
   gps: false,
@@ -267,7 +267,8 @@ async function scheduleAlerts() {
   try {
     const pending = await LocalNotifications.getPending();
     if (pending.notifications.length) await LocalNotifications.cancel({ notifications: pending.notifications });
-    if (!S.notif) return;
+    const azOn = S.azMorning || S.azEvening || S.azPrayer;
+    if (!S.notif && !azOn) return;
     const perm = await LocalNotifications.checkPermissions();
     if (perm.display !== "granted") { alertsDenied = true; return; }
     alertsDenied = false;
@@ -278,14 +279,37 @@ async function scheduleAlerts() {
     const ev = prayerEvents(now, p.lat, p.lon, p.tz, method(), S.hanafi, offs(), 10).all
       .filter(e => e.date > now && (e.prayer !== "sunrise" || S.sunriseAlert) && (!S.muted[e.prayer] || alarmOn(e.prayer)));
     const list = []; let id = 1;
-    for (const e of ev.slice(0, 120)) {
+    if (S.notif) for (const e of ev.slice(0, 120)) {
       const nm = pName(e.prayer), sound = alarmOn(e.prayer);
       list.push({ id: id++, title: nm, body: p.name, channelId: sound ? "adhan_sound" : "adhan", sound: sound ? "adhan.wav" : undefined, isExactNotification: exactOK, schedule: { at: new Date(e.date), allowWhileIdle: true } });
       if (S.remind > 0 && e.date - S.remind * 60000 > now)
         list.push({ id: id++, title: ar() ? `${nm} بعد ${S.remind} دقيقة` : F("{0} in {1} minutes", nm, S.remind), body: p.name, channelId: "adhan", isExactNotification: exactOK, schedule: { at: new Date(e.date - S.remind * 60000), allowWhileIdle: true } });
     }
+    if (azOn) azkarReminders(now).forEach(r => list.push({ id: 5000 + id++, title: r.title, body: r.body, channelId: "adhan", isExactNotification: exactOK, extra: { azcat: r.cat }, schedule: { at: new Date(r.at), allowWhileIdle: true } }));
     for (let i = 0; i < list.length; i += 50) await LocalNotifications.schedule({ notifications: list.slice(i, i + 50) });
   } catch (e) { console.log("alerts", e); }
+}
+// Azkar reminders for the next 7 days: morning Fajr+15 then every 2 h until Dhuhr, evening Asr+15 then every 2 h until Isha,
+// after-prayer 15 min after each prayer. Today's reminders are skipped once that azkar is finished.
+function azkarReminders(now) {
+  syncAzkarResets();
+  const p = S.place, M = 60000, out = [];
+  const body = ar() ? "لم تكتمل بعد، اضغط للمتابعة" : L("Not finished yet. Tap to continue.");
+  const ev = prayerEvents(now, p.lat, p.lon, p.tz, method(), S.hanafi, offs(), 7).all;
+  const next = (e, name) => ev.find(x => x.prayer === name && x.date > e.date);
+  for (const e of ev) {
+    if (e.prayer === "fajr" && S.azMorning) {
+      const end = next(e, "dhuhr"), done = azStamp.morning === e.date && catDone("morning");
+      if (end && !done) for (let t = e.date + 15 * M; t < end.date; t += 120 * M) if (t > now) out.push({ at: t, cat: 0, title: catTitle(0), body });
+    }
+    if (e.prayer === "asr" && S.azEvening) {
+      const end = next(e, "isha"), done = azStamp.evening === e.date && catDone("evening");
+      if (end && !done) for (let t = e.date + 15 * M; t < end.date; t += 120 * M) if (t > now) out.push({ at: t, cat: 1, title: catTitle(1), body });
+    }
+    if (S.azPrayer && e.prayer !== "sunrise" && e.date + 15 * M > now && !(azStamp.afterPrayer === e.date && catDone("afterPrayer")))
+      out.push({ at: e.date + 15 * M, cat: 2, title: catTitle(2), body: `${pName(e.prayer)} · ${body}` });
+  }
+  return out.slice(0, 150);
 }
 async function setAlerts(on) {
   if (on && nativeOK()) {
@@ -306,6 +330,10 @@ async function ensureAlertPermission() {
   } catch (e) {}
   await scheduleAlerts(); if (S.tab === 4) render();
 }
+async function azkarPermission() {
+  if (nativeOK()) { try { const r = await LocalNotifications.requestPermissions(); alertsDenied = r.display !== "granted"; } catch (e) {} }
+  await scheduleAlerts(); render();
+}
 async function askExact() { try { await LocalNotifications.changeExactNotificationSetting(); } catch (e) {} await scheduleAlerts(); render(); }
 const offs = () => S.off || {};
 
@@ -321,6 +349,30 @@ const badge = c => `<span class="iso">${esc(iso3((c || "--").toUpperCase()))}</s
 let prayDay = 0, azkarCat = null, azkarCounts = {}, mosqueAround = null, mosqueState = { loading: false, list: [], failed: false, key: "" };
 let pickerOpen = null, pickerQuery = "", pickerRemote = [], sheet = null;
 try { azkarCounts = JSON.parse(localStorage.getItem("rafeeq_counts") || "{}"); } catch (e) {}
+
+/* ---------- azkar progress: automatic reset by prayer time, reminders ---------- */
+// Morning azkar start again at Fajr, evening at Asr, after-prayer at every prayer, sleep at Isha. Travel and "more" only by hand.
+const AZ_RESET = { morning: ["fajr"], evening: ["asr"], afterPrayer: ["fajr", "dhuhr", "asr", "maghrib", "isha"], sleep: ["isha"] };
+let azStamp = {}; try { azStamp = JSON.parse(localStorage.getItem("rihal_azstamp") || "{}"); } catch (e) {}
+function lastPrayer(names, now = Date.now()) {
+  const p = S.place, ev = prayerEvents(now, p.lat, p.lon, p.tz, method(), S.hanafi, offs(), 1).all.filter(e => names.includes(e.prayer) && e.date <= now);
+  return ev.length ? ev[ev.length - 1].date : 0;
+}
+function saveCounts() { try { localStorage.setItem("rafeeq_counts", JSON.stringify(azkarCounts)); localStorage.setItem("rihal_azstamp", JSON.stringify(azStamp)); } catch (e) {} }
+function syncAzkarResets() {
+  let ch = false;
+  for (const cat in AZ_RESET) {
+    const st = lastPrayer(AZ_RESET[cat]);
+    if (!st || azStamp[cat] === st) continue;
+    for (const d of DATA.azkar[cat]) if (azkarCounts[d.id]) delete azkarCounts[d.id];
+    azStamp[cat] = st; ch = true;
+  }
+  if (ch) saveCounts();
+}
+const catDone = cat => DATA.azkar[cat].every(d => (azkarCounts[d.id] || 0) >= d.n);
+const listItems = () => azkarCat === "more" || azkarCat == null ? null : isMore() ? MORE[+azkarCat.slice(2)].items : DATA.azkar[CATS[azkarCat]];
+const findDhikr = id => { for (const c of CATS) { const d = DATA.azkar[c].find(x => x.id === id); if (d) return d; } for (const g of MORE) { const d = g.items.find(x => x.id === id); if (d) return d; } return null; };
+const progBadge = items => { const t = items.length, d = items.filter(x => (azkarCounts[x.id] || 0) >= x.n).length; return d === t ? `<small class="pdone">✓</small>` : `<small>${d ? `${d}/${t}` : t}</small>`; };
 
 function placeBtn() {
   return `<button class="pill" data-act="picker">${I.pin}<span class="pn">${esc(S.place.name)}</span>${I.chev}</button>`;
@@ -473,7 +525,7 @@ function tickHome() {
   const frac = next && prev ? Math.max(0.02, Math.min(1, (now - prev.date) / (next.date - prev.date))) : 0;
   const C = 2 * Math.PI * 46.5;
   hero.classList.toggle("nonow", S.showNow === false);
-  hero.innerHTML = `${S.showNow === false ? `<div></div>` : `<div class="hn"><div class="hnm"><span class="nowb">${L("NOW")}</span><span class="hic">${nowEv ? PI[nowEv.prayer] : I.clock}</span><b>${nowName}</b></div><span class="hnt">${nowEv ? clock(nowEv.date, p.tz) : "--:--"}</span></div>`}
+  hero.innerHTML = `${S.showNow === false ? "" : `<div class="hn"><div class="hnm"><span class="nowb">${L("NOW")}</span><span class="hic">${nowEv ? PI[nowEv.prayer] : I.clock}</span><b>${nowName}</b></div><span class="hnt">${nowEv ? clock(nowEv.date, p.tz) : "--:--"}</span></div>`}
     ${weatherBlock()}
     <div class="hrg"><svg viewBox="0 0 104 104"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--deep)"/></linearGradient></defs><circle cx="52" cy="52" r="46.5" fill="none" stroke="var(--tile)" stroke-width="7"/><circle cx="52" cy="52" r="46.5" fill="none" stroke="url(#rg)" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C * frac} ${C}" transform="rotate(-90 52 52)"/></svg>
       <div class="hrt"><div class="r1"><i>${next ? PI[next.prayer] : ""}</i>${next ? (ar() ? `${pName(next.prayer)} بعد` : F("{0} in", pName(next.prayer))) : "—"}</div><div class="r2t">${next ? cd(next.date - now) : "--:--:--"}</div><div class="r3">${next ? (ar() ? "عند " + clock(next.date, p.tz) : F("at {0}", clock(next.date, p.tz))) : L("Not available here")}</div></div></div>`;
@@ -583,15 +635,16 @@ const isMore = () => typeof azkarCat === "string";
 const MICON = { rug: '<svg class="msvg rug" viewBox="0 0 64 64" fill="none" stroke-linejoin="round"><path d="M16 58V20Q16 6 32 4Q48 6 48 20V58Z" fill="#B24A62" stroke="#E4BB68" stroke-width="2.4"/><path d="M22 52V24Q22 14 32 12Q42 14 42 24V52Z" stroke="#E4BB68" stroke-width="2.2"/><path d="M27 52V30Q27 25 32 22Q37 25 37 30V52Z" fill="#E4BB68" fill-opacity=".85"/><path d="M16 58H48" stroke="#E4BB68" stroke-width="3"/><path d="M19 62v-4M24 62v-4M29 62v-4M35 62v-4M40 62v-4M45 62v-4" stroke="#E4BB68" stroke-width="1.6" stroke-linecap="round"/></svg>', sujood: '<svg class="msvg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="50" width="58" height="5" rx="2" fill="currentColor" fill-opacity=".45" stroke="none"/><circle cx="13" cy="44.5" r="5" fill="currentColor" stroke="none"/><path d="M19 41 Q27 25 40 27 L45 46 L58 48" stroke-width="8"/><path d="M21 42 L25 49" stroke-width="5"/></svg>' };
 const mIcon = ic => (ic.startsWith("svg:") ? MICON[ic.slice(4)] || "" : ic);
 function viewMoreGrid() {
-  const cards = MORE.map((g, i) => `<button class="acat sm" data-act="mcat" data-i="${i}"><span class="aci">${mIcon(g.icon)}</span><span class="act">${esc(gTitle(g))}</span>${ar() ? "" : `<span class="ar act2">${g.ar}</span>`}<small>${g.items.length}</small></button>`).join("");
+  const cards = MORE.map((g, i) => `<button class="acat sm" data-act="mcat" data-i="${i}"><span class="aci">${mIcon(g.icon)}</span><span class="act">${esc(gTitle(g))}</span>${ar() ? "" : `<span class="ar act2">${g.ar}</span>`}${progBadge(g.items)}</button>`).join("");
   return `<div class="ahead"><button class="iconbtn" data-act="back">${rtl() ? I.right : I.left}</button><div class="atitle">${moreT()}</div></div><div class="agrid">${cards}</div>
   <div class="foot">${ar() ? "الأذكار: حصن المسلم" : L("Quran: Tanzil · Adhkar: Hisn al-Muslim")}</div>`;
 }
 function viewAzkhar() {
+  syncAzkarResets();
   if (azkarCat === "more") return viewMoreGrid();
   if (isMore()) { const g = MORE[+azkarCat.slice(2)]; return azkarList(gTitle(g), ar() ? "" : g.ar, g.items); }
   if (azkarCat != null) return viewAzkharDetail();
-  const cards = CATS.map((c, i) => `<button class="acat" data-act="cat" data-i="${i}"><span class="aci ${i === 2 ? "" : ""}">${["🌅", "🌇", I.dua, "🌙", "✈️"][i]}</span><span class="act">${catTitle(i)}</span>${ar() ? "" : `<span class="ar act2">${CAT_TITLES.ar[i]}</span>`}<small>${DATA.azkar[c].length}</small></button>`).join("")
+  const cards = CATS.map((c, i) => `<button class="acat" data-act="cat" data-i="${i}"><span class="aci ${i === 2 ? "" : ""}">${["🌅", "🌇", I.dua, "🌙", "✈️"][i]}</span><span class="act">${catTitle(i)}</span>${ar() ? "" : `<span class="ar act2">${CAT_TITLES.ar[i]}</span>`}${progBadge(DATA.azkar[c])}</button>`).join("")
     + `<button class="acat" data-act="mcat" data-i="-1"><span class="aci">📚</span><span class="act">${moreT()}</span>${ar() ? "" : `<span class="ar act2">${MORE_T.ar}</span>`}<small>${MORE.length}</small></button>`;
   return `${title("Azkhar", "الأذكار")}<div class="agrid">${cards}</div><div class="foot">${ar() ? "القرآن: تنزيل · الأذكار: حصن المسلم" : L("Quran: Tanzil · Adhkar: Hisn al-Muslim")}</div>`;
 }
@@ -600,16 +653,17 @@ function viewAzkharDetail() { const i = azkarCat; return azkarList(catTitle(i), 
 function azkarList(head, headAr, items) {
   const hint = { ar: "اضغط على البطاقة للعدّ. النصوص مضمّنة وتعمل بدون إنترنت.", tr: "Saymak için karta dokunun. Metinler çevrimdışı çalışır.", fr: "Touchez une carte pour compter. Les textes fonctionnent hors ligne.", it: "Tocca una scheda per contare. I testi funzionano offline.", de: "Karte antippen zum Zählen. Die Texte funktionieren offline.", nl: "Tik op een kaart om te tellen. De teksten werken offline.", es: "Toca una tarjeta para contar. Los textos funcionan sin conexión." }[S.lang] || (X[S.lang] && X[S.lang].hint) || "Tap a card to count. Texts work offline.";
   const done = { ar: "تم", tr: "Tamam", fr: "Terminé", it: "Fatto", de: "Fertig", nl: "Klaar", es: "Hecho" }[S.lang] || (X[S.lang] && X[S.lang].done) || "Done";
-  return `<div class="ahead"><button class="iconbtn" data-act="back">${rtl() ? I.right : I.left}</button><div class="atitle">${esc(head)}</div>${headAr ? `<div class="atitle ar acc">${esc(headAr)}</div>` : ""}</div>
+  return `<div class="ahead"><button class="iconbtn" data-act="back">${rtl() ? I.right : I.left}</button><div class="atitle">${esc(head)}</div>${headAr ? `<div class="atitle ar acc">${esc(headAr)}</div>` : ""}<button class="resetall" data-act="resetAll" aria-label="${azT("resetAll")}">↺</button></div>
   ${items.map(d => {
     const n = azkarCounts[d.id] || 0, fin = n >= d.n;
     return `${d.h ? `<div class="ahsub" dir="${ar() || S.lang === "ur" ? "rtl" : "ltr"}">${esc(ar() ? d.h : ((d.ht && d.ht[S.lang]) || d.h))}</div>` : ""}<div class="card dcard ${fin ? "fin" : ""}" data-act="count" data-id="${d.id}" data-n="${d.n}">
+      <div class="dshort"><span class="dchk">✓</span><span>${esc(shortAr(d.ar))}</span><b>${d.n > 1 ? "×" + d.n : ""}</b></div>
       <div class="darb">${esc(d.ar)}</div>
       ${d.note ? `<div class="dnote">${esc(d.note)}</div>` : ""}
       ${transOf(d) ? `<hr><div class="dtr">${esc(transOf(d))}</div>` : ""}
       <div class="dref">${esc(d.ref)}</div>
-      <div class="dfoot"><div class="dbar"><i style="width:${Math.min(100, n / d.n * 100)}%"></i></div><div class="dcnt" id="c-${d.id}">${fin ? done : `${n} / ${d.n}`}</div></div></div>`;
-  }).join("")}<div class="foot">${hint}</div><div class="foot">${ar() ? "القرآن: تنزيل · الأذكار: حصن المسلم" : L("Quran: Tanzil · Adhkar: Hisn al-Muslim")}</div>`;
+      <div class="dfoot"><button class="dminus ${n ? "" : "hide"}" data-act="dec" data-id="${d.id}" aria-label="-1">−1</button><div class="dbar"><i style="width:${Math.min(100, n / d.n * 100)}%"></i></div><div class="dcnt" id="c-${d.id}">${fin ? done : `${n} / ${d.n}`}</div></div></div>`;
+  }).join("")}<div class="foot">${hint} ${azT("hint2")}</div><div class="foot">${ar() ? "القرآن: تنزيل · الأذكار: حصن المسلم" : L("Quran: Tanzil · Adhkar: Hisn al-Muslim")}</div>`;
 }
 
 /* ----- Settings tab ----- */
@@ -629,7 +683,8 @@ const SIC = {
   fn: SI('<path d="M15 4h-1.5A2.5 2.5 0 0 0 11 6.5v11A2.5 2.5 0 0 1 8.5 20H7M8 11h7"/>'),
   pm: SI('<circle cx="12" cy="12" r="9"/><path d="M12 6.5v6M9 9.5h6M9 16h6"/>'), sun: PI.dhuhr, bell: I.bell,
   speaker: SI('<path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18 7a7 7 0 0 1 0 10"/>'),
-  remind: PI.alarm, sunrise: PI.sunrise, temp: SI('<path d="M10 14.2V5a2 2 0 0 1 4 0v9.2a4 4 0 1 1-4 0z"/><path d="M12 11v5"/>'),
+  remind: PI.alarm, sunrise: PI.sunrise, sunset: SI('<path d="M19.5 14.5A7.5 7.5 0 1 1 9.5 4.5a6 6 0 0 0 10 10z"/>'),
+  dua: SI('<circle cx="12" cy="4.5" r="1.8"/><circle cx="17" cy="7" r="1.8"/><circle cx="18.2" cy="12.5" r="1.8"/><circle cx="7" cy="7" r="1.8"/><circle cx="5.8" cy="12.5" r="1.8"/><circle cx="12" cy="16" r="1.8"/><path d="M12 17.8V21"/>'), temp: SI('<path d="M10 14.2V5a2 2 0 0 1 4 0v9.2a4 4 0 1 1-4 0z"/><path d="M12 11v5"/>'),
   info: SI('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.6v.2"/>'),
   play: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M10 8l6 4-6 4z" fill="var(--card)"/></svg>',
 };
@@ -679,6 +734,11 @@ function viewSettings() {
     + irow("remind", L("Remind me before"), sel("remind", remind, S.remind))
     + irow("sunrise", L("Sunrise alert"), tog("sunriseAlert", S.sunriseAlert)))}
   <div class="sfoot">${ar() ? "بجانب كل صلاة: زر المنبّه يشغّل الأذان، وزر الجرس يرسل تنبيهًا بدون أذان." : L("Next to each prayer: the alarm button plays the adhan, the bell sends a notification without it.")}</div>
+  ${sgroup("Azkhar", irow("sunrise", ar() ? "تذكير أذكار الصباح" : L("Morning azkar reminder"), tog("azMorning", S.azMorning))
+    + irow("sunset", ar() ? "تذكير أذكار المساء" : L("Evening azkar reminder"), tog("azEvening", S.azEvening))
+    + irow("dua", ar() ? "تذكير أذكار بعد الصلاة" : L("After-prayer azkar reminder"), tog("azPrayer", S.azPrayer))
+    + (NativeWidget ? irow("speaker", ar() ? "العدّ بأزرار الصوت" : L("Count with volume buttons"), tog("volKeys", S.volKeys)) : ""))}
+  <div class="sfoot">${ar() ? "الصباح: بعد الفجر بـ١٥ دقيقة ثم كل ساعتين حتى الظهر. المساء: بعد العصر بـ١٥ دقيقة ثم كل ساعتين حتى العشاء. بعد الصلاة: بعد كل صلاة بـ١٥ دقيقة. يتوقف التذكير عند إكمال الأذكار." : L("Morning: 15 min after Fajr, then every 2 hours until Dhuhr. Evening: 15 min after Asr, then every 2 hours until Isha. After prayer: 15 min after each prayer. Reminders stop once you finish.")}</div>
   ${sgroup("units", irow("temp", L("Temperature"), sel("temp", [["c", L("Celsius (°C)")], ["f", L("Fahrenheit (°F)")]], S.temp)))}
   <div class="card sbox" style="margin-top:22px">${irow("info", L("About"), `<span class="muted">Rihal 1.0${__BUILD__ ? ` (${__BUILD__})` : ""}</span>`)}<a class="srow irow" href="${PRIVACY_URL}" target="_blank" rel="noopener"><span class="sic"></span><div class="sl">${PRIVACY_LABEL[S.lang] || "Privacy policy"}</div><span aria-hidden="true">↗</span></a></div>
   <div class="sfoot center">${esc(L("Qibla and prayer times are calculated on this device. Your approximate location is sent only when you look up mosques, weather or cities."))}</div>`;
@@ -731,9 +791,90 @@ function render() {
   if (S.tab === 3) mushafAfter(ar(), L);
   if (S.tab === 1) loadMosques();
   v.scrollTop = st;
+  if (tasbihId && S.tab !== 2) closeTasbih();
+  syncVolKeys();
   pushWidget();
 }
-function vibr() { try { navigator.vibrate && navigator.vibrate(12); } catch (e) {} }
+function vibr(p = 12) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
+
+/* ----- azkar counting: finish and move on, big counter, undo, long-press reset, volume keys ----- */
+const AZT = {
+  resetAll: { ar: "إعادة الكل؟", en: "Reset all?" }, tapAny: { ar: "اضغط في أي مكان للعدّ", en: "Tap anywhere to count" },
+  hint2: { ar: "اضغط مطوّلًا على البطاقة لتصفيرها.", en: "Long-press a card to reset it." },
+};
+const azT = k => (ar() ? AZT[k].ar : L(AZT[k].en));
+const doneWord = () => ({ ar: "تم", tr: "Tamam", fr: "Terminé", it: "Fatto", de: "Fertig", nl: "Klaar", es: "Hecho" }[S.lang] || (X[S.lang] && X[S.lang].done) || "Done");
+const shortAr = t => { const w = t.replace(/[﴿﴾()\[\]]/g, "").replace(/\s+/g, " ").trim().split(" "); return w.slice(0, 6).join(" ") + (w.length > 6 ? " …" : ""); };
+let lpFired = false, tasbihId = null, volOn = null;
+function addCount(id, step) {
+  const d = findDhikr(id); if (!d) return;
+  const c = azkarCounts[id] || 0, v = Math.max(0, Math.min(d.n, c + step)); if (v === c) return;
+  if (v) azkarCounts[id] = v; else delete azkarCounts[id];
+  saveCounts();
+  const fin = v >= d.n;
+  vibr(fin && step > 0 ? [40, 60, 140] : 12);
+  const el = document.querySelector(`.dcard[data-id="${id}"]`);
+  if (el) {
+    $("#c-" + id).textContent = fin ? doneWord() : `${v} / ${d.n}`;
+    el.querySelector(".dbar i").style.width = Math.min(100, v / d.n * 100) + "%";
+    el.querySelector(".dminus").classList.toggle("hide", !v);
+    el.classList.remove("open"); el.classList.toggle("fin", fin);
+    if (fin && step > 0) setTimeout(() => nextCard(el), 380);
+  }
+  if (fin !== (c >= d.n)) scheduleAlerts();                     // finished or reopened: refresh today's reminders
+}
+function nextCard(el) {
+  let n = el.nextElementSibling;
+  while (n && !(n.classList.contains("dcard") && !n.classList.contains("fin"))) n = n.nextElementSibling;
+  if (n) n.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function openTasbih(id) {
+  tasbihId = id;
+  let o = $("#tasbih"); if (!o) { o = document.createElement("div"); o.id = "tasbih"; document.body.appendChild(o); }
+  o.innerHTML = `<div class="tbtop"><button class="iconbtn" data-act="tclose" aria-label="close">✕</button></div>
+    <div class="tbtext" dir="rtl"></div><div class="tbring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="var(--tile)" stroke-width="9"/><circle class="tbarc" cx="60" cy="60" r="52" fill="none" stroke="var(--accent)" stroke-width="9" stroke-linecap="round" transform="rotate(-90 60 60)"/></svg><div class="tbnum"></div></div>
+    <div class="tbhint">${azT("tapAny")}</div><div class="tbbot"><button class="dminus" data-act="tdec">−1</button></div>`;
+  o.classList.add("on"); paintTasbih();
+  o.onclick = e => { if (e.target.closest("button")) return; addCount(tasbihId, 1); paintTasbih(); };
+}
+function paintTasbih() {
+  const o = $("#tasbih"), d = tasbihId && findDhikr(tasbihId); if (!o || !d) return;
+  const v = azkarCounts[d.id] || 0, C = 2 * Math.PI * 52;
+  o.querySelector(".tbtext").textContent = d.ar;
+  o.querySelector(".tbnum").innerHTML = `${v}<small>/ ${d.n}</small>`;
+  const a = o.querySelector(".tbarc"); a.setAttribute("stroke-dasharray", `${C * v / d.n} ${C}`);
+  if (v >= d.n) setTimeout(closeTasbih, 650);
+}
+function closeTasbih() {
+  const o = $("#tasbih"); if (o) o.classList.remove("on");
+  const id = tasbihId; tasbihId = null;
+  const el = id && document.querySelector(`.dcard[data-id="${id}"]`);
+  if (el && el.classList.contains("fin")) setTimeout(() => nextCard(el), 200);
+}
+// Long-press a card to reset it.
+(() => {
+  let t = null, x = 0, y = 0;
+  const stop = () => { clearTimeout(t); t = null; };
+  document.addEventListener("pointerdown", e => {
+    const el = e.target.closest(".dcard"); if (!el || e.target.closest("button")) return;
+    x = e.clientX; y = e.clientY; stop();
+    t = setTimeout(() => { const id = el.dataset.id; if (azkarCounts[id]) { lpFired = true; addCount(id, -(azkarCounts[id])); vibr(50); } }, 650);
+  });
+  document.addEventListener("pointermove", e => { if (t && (Math.abs(e.clientX - x) > 10 || Math.abs(e.clientY - y) > 10)) stop(); });
+  ["pointerup", "pointercancel"].forEach(n => document.addEventListener(n, stop));
+  document.addEventListener("contextmenu", e => { if (e.target.closest(".dcard")) e.preventDefault(); });
+})();
+// Android volume keys count the first unfinished dhikr (or the open big counter).
+function volCount() {
+  if (tasbihId) { addCount(tasbihId, 1); paintTasbih(); return; }
+  const el = [...document.querySelectorAll(".dcard")].find(c => !c.classList.contains("fin")); if (!el) return;
+  addCount(el.dataset.id, 1); el.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+function syncVolKeys() {
+  const on = !!(NativeWidget && S.volKeys && S.tab === 2 && listItems());
+  if (on === volOn) return; volOn = on;
+  try { NativeWidget.setVolumeKeys({ on }); } catch (e) {}
+}
 const ACT = {
   tab(el) { setSub = null; S.tab = +el.dataset.i; azkarCat = null; save(); render(); $("#view").scrollTop = 0; },
   picker() { pickerOpen = "p"; pickerQuery = ""; pickerRemote = []; renderSheet(); },
@@ -752,11 +893,19 @@ const ACT = {
   mcat(el) { const i = +el.dataset.i; azkarCat = i < 0 ? "more" : "m:" + i; render(); $("#view").scrollTop = 0; },
   back() { azkarCat = isMore() && azkarCat !== "more" ? "more" : null; render(); $("#view").scrollTop = 0; },
   count(el) {
-    const id = el.dataset.id, n = +el.dataset.n, c = azkarCounts[id] || 0; if (c >= n) return;
-    azkarCounts[id] = c + 1; vibr(); try { localStorage.setItem("rafeeq_counts", JSON.stringify(azkarCounts)); } catch (e) {}
-    const fin = c + 1 >= n, done = { ar: "تم", tr: "Tamam", fr: "Terminé", it: "Fatto", de: "Fertig", nl: "Klaar", es: "Hecho" }[S.lang] || (X[S.lang] && X[S.lang].done) || "Done";
-    $("#c-" + id).textContent = fin ? done : `${c + 1} / ${n}`; el.querySelector(".dbar i").style.width = Math.min(100, (c + 1) / n * 100) + "%"; el.classList.toggle("fin", fin);
+    if (lpFired) { lpFired = false; return; }
+    const id = el.dataset.id, n = +el.dataset.n, c = azkarCounts[id] || 0;
+    if (c >= n) { el.classList.toggle("open"); return; }      // finished card: tap shows or folds the text
+    if (n >= 33) { openTasbih(id); return; }                  // long counts: full-screen counter
+    addCount(id, 1);
   },
+  dec(el) { addCount(el.dataset.id, -1); },
+  resetAll(el) {
+    if (!el.classList.contains("sure")) { el.classList.add("sure"); el.textContent = azT("resetAll"); clearTimeout(el._t); el._t = setTimeout(() => { el.classList.remove("sure"); el.textContent = "↺"; }, 3000); return; }
+    (listItems() || []).forEach(d => delete azkarCounts[d.id]); saveCounts(); vibr(30); render(); scheduleAlerts();
+  },
+  tclose() { closeTasbih(); },
+  tdec() { if (tasbihId) { addCount(tasbihId, -1); paintTasbih(); } },
   alarm(el) { const k = el.dataset.k; S.alarm = { ...(S.alarm || {}), [k]: !alarmOn(k) }; save(); scheduleAlerts(); render(); },
   mclose() { S.tab = 0; save(); render(); },
   mindex() { mushafIndexToggle(ar(), L); },
@@ -777,6 +926,7 @@ document.addEventListener("change", e => {
   const k = el.dataset.k; let v = el.type === "checkbox" ? el.checked : el.value;
   if (k === "remind") v = +v;
   if (k === "notif") { setAlerts(v); return; }
+  if (["azMorning", "azEvening", "azPrayer"].includes(k)) { S[k] = v; save(); if (v) azkarPermission(); else scheduleAlerts(); render(); return; }
   S[k] = v; save();
   if (["lang", "method", "hanafi", "remind", "sunriseAlert"].includes(k)) scheduleAlerts();
   if (k === "lang") { mosqueState.key = ""; weather = weather; }
@@ -813,6 +963,14 @@ function boot() {
     const go = t => { if (t == null || t < 0) return; S.tab = t; azkarCat = null; save(); render(); };
     NativeWidget.addListener("openTab", o => go(o.tab));
     NativeWidget.getLaunchTab().then(o => go(o.tab)).catch(() => {});
+    NativeWidget.addListener("volumeKey", () => volCount());
+  }
+  if (nativeOK()) {
+    // a tap on an azkar reminder opens that azkar list
+    LocalNotifications.addListener("localNotificationActionPerformed", a => {
+      const c = a && a.notification && a.notification.extra && a.notification.extra.azcat;
+      if (c == null) return; setSub = null; S.tab = 2; azkarCat = +c; save(); render(); $("#view").scrollTop = 0;
+    });
   }
   if ("serviceWorker" in navigator && !nativeOK() && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
 }

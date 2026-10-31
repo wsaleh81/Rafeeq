@@ -12,10 +12,25 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 @CapacitorPlugin(name = "RihalWidget")
 public class RihalWidgetPlugin extends Plugin {
     private int launchTab = -1;
+    /** Set while an azkar list is open and "count with volume buttons" is on. */
+    static volatile boolean volumeKeys = false;
+    static RihalWidgetPlugin instance;
 
     @Override
     public void load() {
+        instance = this;
         if (getActivity() != null) launchTab = tabFrom(getActivity().getIntent());
+    }
+
+    @PluginMethod
+    public void setVolumeKeys(PluginCall call) {
+        volumeKeys = Boolean.TRUE.equals(call.getBoolean("on", false));
+        call.resolve();
+    }
+
+    /** Called by MainActivity when a volume key is pressed while counting azkar. */
+    void volumePressed() {
+        notifyListeners("volumeKey", new JSObject());
     }
 
     private static int tabFrom(Intent i) {

@@ -3,6 +3,7 @@ package com.wael.rihal;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.KeyEvent;
 import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
@@ -49,6 +50,18 @@ public class MainActivity extends BridgeActivity {
     public void onDestroy() {
         idle.removeCallbacks(closeApp);
         super.onDestroy();
+    }
+
+    /** While an azkar list is open, the volume keys count the next dhikr instead of changing the volume. */
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent e) {
+        int k = e.getKeyCode();
+        if (RihalWidgetPlugin.volumeKeys && RihalWidgetPlugin.instance != null
+                && (k == KeyEvent.KEYCODE_VOLUME_UP || k == KeyEvent.KEYCODE_VOLUME_DOWN)) {
+            if (e.getAction() == KeyEvent.ACTION_DOWN && e.getRepeatCount() == 0) RihalWidgetPlugin.instance.volumePressed();
+            return true;
+        }
+        return super.dispatchKeyEvent(e);
     }
 
     private WebView webView() {
