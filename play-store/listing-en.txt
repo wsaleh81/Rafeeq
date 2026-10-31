@@ -20,6 +20,10 @@ PRAYER TIMES
 • Several calculation methods, Hanafi Asr option and minute-by-minute adjustments
 • Shows the local time of the selected city, so the times are right even before your phone changes time zone
 
+HOME-SCREEN WIDGETS
+• Next prayer with a live countdown ring
+• Next prayer time and the nearest mosque, one tap away
+
 ADHAN ALERTS
 • A notification at each prayer time, scheduled on your phone
 • Turn the adhan sound on for the prayers you choose
@@ -30,9 +34,9 @@ NEARBY MOSQUES
 • Directions in Google Maps or Waze with one tap
 
 AZKHAR AND QURAN
-• Morning, evening, after-prayer, sleep and travel azkhar, with a counter for each
-• Arabic text with English meaning
-• Read the Mushaf page by page; on a wide or unfolded screen it opens as a two-page book
+• Morning, evening, after-prayer, sleep and travel azkhar, with a counter for each and meanings in 10 languages
+• More than 180 more azkar and duas from Hisn al-Muslim: waking up, the mosque, wudu, travel, worry and distress, rain, illness, provision (rizq) and more
+• Read the Mushaf page by page with a real page-turn effect; on a wide or unfolded screen it opens as a two-page book
 • Sources are shown in the app (Quran text: Tanzil; azkar: Hisn al-Muslim)
 
 MADE FOR TRAVELLERS

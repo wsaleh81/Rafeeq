@@ -577,7 +577,7 @@ function viewAzkhar() {
     + `<button class="acat" data-act="mcat" data-i="-1"><span class="aci">📚</span><span class="act">${moreT()}</span>${ar() ? "" : `<span class="ar act2">${MORE_T.ar}</span>`}<small>${MORE.length}</small></button>`;
   return `${title("Azkhar", "الأذكار")}<div class="agrid">${cards}</div><div class="foot">${ar() ? "القرآن: تنزيل · الأذكار: حصن المسلم" : L("Quran: Tanzil · Adhkar: Hisn al-Muslim")}</div>`;
 }
-function transOf(d) { return d.tr ? (d.tr[S.lang] || d.tr.en || "") : ""; }
+function transOf(d) { if (ar()) return ""; return d.tr ? (d.tr[S.lang] || d.tr.en || "") : ""; }   // Arabic app language: Arabic only (same as iPhone)
 function viewAzkharDetail() { const i = azkarCat; return azkarList(catTitle(i), ar() ? "" : CAT_TITLES.ar[i], DATA.azkar[CATS[i]]); }
 function azkarList(head, headAr, items) {
   const hint = { ar: "اضغط على البطاقة للعدّ. النصوص مضمّنة وتعمل بدون إنترنت.", tr: "Saymak için karta dokunun. Metinler çevrimdışı çalışır.", fr: "Touchez une carte pour compter. Les textes fonctionnent hors ligne.", it: "Tocca una scheda per contare. I testi funzionano offline.", de: "Karte antippen zum Zählen. Die Texte funktionieren offline.", nl: "Tik op een kaart om te tellen. De teksten werken offline.", es: "Toca una tarjeta para contar. Los textos funcionan sin conexión." }[S.lang] || (X[S.lang] && X[S.lang].hint) || "Tap a card to count. Texts work offline.";
