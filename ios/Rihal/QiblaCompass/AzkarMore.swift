@@ -10,6 +10,15 @@ struct MoreAzkarItem: Decodable, Identifiable {
     let ref: String
     let note: String?
     let h: String?
+    let tr: [String: String]?
+    let ht: [String: String]?
+
+    /// Translation for a non-Arabic app language (Arabic only when the app is in Arabic).
+    func translation(_ lang: String) -> String? { lang == "ar" ? nil : (tr?[lang] ?? tr?["en"]) }
+    func heading(_ lang: String) -> String? {
+        guard let h else { return nil }
+        return lang == "ar" ? h : (ht?[lang] ?? ht?["en"] ?? h)
+    }
 }
 
 struct MoreAzkarGroup: Decodable, Identifiable {
@@ -17,7 +26,10 @@ struct MoreAzkarGroup: Decodable, Identifiable {
     let icon: String
     let ar: String
     let en: String
+    let t: [String: String]?
     let items: [MoreAzkarItem]
+
+    func title(_ lang: String) -> String { lang == "ar" ? ar : (t?[lang] ?? en) }
 }
 
 enum MoreAzkar {
@@ -136,7 +148,7 @@ struct MoreAzkarView: View {
         VStack(spacing: 6) {
             HStack { Spacer(); Text("\(g.items.count)").font(.sys(size: 12, weight: .bold, design: .rounded)).foregroundStyle(Theme.muted) }
             MoreAzkarIcon(icon: g.icon, size: 32).frame(height: 40)
-            Text(langID == "ar" ? g.ar : g.en).font(.sys(size: 15, weight: .bold, design: Theme.design)).foregroundStyle(Theme.ink)
+            Text(g.title(langID)).font(.sys(size: 15, weight: .bold, design: Theme.design)).foregroundStyle(Theme.ink)
                 .multilineTextAlignment(.center).lineLimit(2).minimumScaleFactor(0.8)
             if langID != "ar" { Text(g.ar).font(.sys(size: 13, weight: .semibold)).foregroundStyle(Theme.mintDeep).lineLimit(1).minimumScaleFactor(0.8) }
             Spacer(minLength: 0)
@@ -170,7 +182,7 @@ struct MoreAzkarListView: View {
                         .background(Theme.tile, in: Circle())
                 }
                 MoreAzkarIcon(icon: group.icon, size: 20)
-                Text(langID == "ar" ? group.ar : group.en).font(.sys(size: 21, weight: .bold, design: Theme.design)).foregroundStyle(Theme.ink)
+                Text(group.title(langID)).font(.sys(size: 21, weight: .bold, design: Theme.design)).foregroundStyle(Theme.ink)
                     .lineLimit(1).minimumScaleFactor(0.7)
                 Spacer()
             }
@@ -178,9 +190,11 @@ struct MoreAzkarListView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     ForEach(group.items) { d in
-                        if let h = d.h {
+                        if let h = d.heading(langID) {
+                            let rtl = langID == "ar" || langID == "ur"
                             Text(h).font(.sys(size: 15, weight: .heavy)).foregroundStyle(Theme.mintDeep)
-                                .frame(maxWidth: .infinity, alignment: .trailing).environment(\.layoutDirection, .leftToRight)
+                                .multilineTextAlignment(rtl ? .trailing : .leading)
+                                .frame(maxWidth: .infinity, alignment: rtl ? .trailing : .leading).environment(\.layoutDirection, .leftToRight)
                                 .padding(.top, 6)
                         }
                         card(d)
@@ -205,6 +219,12 @@ struct MoreAzkarListView: View {
         } label: {
             VStack(spacing: 10) {
                 JustifiedText(text: d.ar, size: 19 * Theme.azkarScale, color: UIColor(Theme.ink), lineSpacing: 9, markColor: UIColor(Theme.mintDeep))
+                if let t = d.translation(langID) {
+                    Divider().overlay(Theme.line)
+                    Text(t).font(.sys(size: 18 * Theme.azkarScale)).lineSpacing(4).foregroundStyle(Theme.muted)
+                        .multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
                 if let note = d.note {
                     Text(note).font(.sys(size: 13 * Theme.azkarScale)).foregroundStyle(Theme.muted)
                         .multilineTextAlignment(.trailing).frame(maxWidth: .infinity, alignment: .trailing)

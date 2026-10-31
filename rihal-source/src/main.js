@@ -577,18 +577,19 @@ async function loadMosques(force) {
 /* "Other azkar": 23 more sections of Hisn al-Muslim, opened from one card */
 const MORE_T = { ar: "أذكار أخرى", en: "More azkar", tr: "Diğer zikirler", fr: "Autres adhkar", it: "Altri adhkar", de: "Weitere Adhkar", nl: "Meer adhkar", es: "Más adhkar", ur: "مزید اذکار", ta: "மேலும் திக்ர்கள்", ru: "Другие азкары" };
 const moreT = () => MORE_T[S.lang] || MORE_T.en;
+const gTitle = g => ar() ? g.ar : ((g.t && g.t[S.lang]) || g.en);
 const isMore = () => typeof azkarCat === "string";
 // a person in sujood on a prayer rug (no emoji shows a Muslim praying)
 const MICON = { rug: '<svg class="msvg rug" viewBox="0 0 64 64" fill="none" stroke-linejoin="round"><path d="M16 58V20Q16 6 32 4Q48 6 48 20V58Z" fill="#B24A62" stroke="#E4BB68" stroke-width="2.4"/><path d="M22 52V24Q22 14 32 12Q42 14 42 24V52Z" stroke="#E4BB68" stroke-width="2.2"/><path d="M27 52V30Q27 25 32 22Q37 25 37 30V52Z" fill="#E4BB68" fill-opacity=".85"/><path d="M16 58H48" stroke="#E4BB68" stroke-width="3"/><path d="M19 62v-4M24 62v-4M29 62v-4M35 62v-4M40 62v-4M45 62v-4" stroke="#E4BB68" stroke-width="1.6" stroke-linecap="round"/></svg>', sujood: '<svg class="msvg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="50" width="58" height="5" rx="2" fill="currentColor" fill-opacity=".45" stroke="none"/><circle cx="13" cy="44.5" r="5" fill="currentColor" stroke="none"/><path d="M19 41 Q27 25 40 27 L45 46 L58 48" stroke-width="8"/><path d="M21 42 L25 49" stroke-width="5"/></svg>' };
 const mIcon = ic => (ic.startsWith("svg:") ? MICON[ic.slice(4)] || "" : ic);
 function viewMoreGrid() {
-  const cards = MORE.map((g, i) => `<button class="acat sm" data-act="mcat" data-i="${i}"><span class="aci">${mIcon(g.icon)}</span><span class="act">${ar() ? g.ar : esc(g.en)}</span>${ar() ? "" : `<span class="ar act2">${g.ar}</span>`}<small>${g.items.length}</small></button>`).join("");
+  const cards = MORE.map((g, i) => `<button class="acat sm" data-act="mcat" data-i="${i}"><span class="aci">${mIcon(g.icon)}</span><span class="act">${esc(gTitle(g))}</span>${ar() ? "" : `<span class="ar act2">${g.ar}</span>`}<small>${g.items.length}</small></button>`).join("");
   return `<div class="ahead"><button class="iconbtn" data-act="back">${rtl() ? I.right : I.left}</button><div class="atitle">${moreT()}</div></div><div class="agrid">${cards}</div>
   <div class="foot">${ar() ? "الأذكار: حصن المسلم" : L("Quran: Tanzil · Adhkar: Hisn al-Muslim")}</div>`;
 }
 function viewAzkhar() {
   if (azkarCat === "more") return viewMoreGrid();
-  if (isMore()) { const g = MORE[+azkarCat.slice(2)]; return azkarList(ar() ? g.ar : g.en, ar() ? "" : g.ar, g.items); }
+  if (isMore()) { const g = MORE[+azkarCat.slice(2)]; return azkarList(gTitle(g), ar() ? "" : g.ar, g.items); }
   if (azkarCat != null) return viewAzkharDetail();
   const cards = CATS.map((c, i) => `<button class="acat" data-act="cat" data-i="${i}"><span class="aci ${i === 2 ? "" : ""}">${["🌅", "🌇", I.dua, "🌙", "✈️"][i]}</span><span class="act">${catTitle(i)}</span>${ar() ? "" : `<span class="ar act2">${CAT_TITLES.ar[i]}</span>`}<small>${DATA.azkar[c].length}</small></button>`).join("")
     + `<button class="acat" data-act="mcat" data-i="-1"><span class="aci">📚</span><span class="act">${moreT()}</span>${ar() ? "" : `<span class="ar act2">${MORE_T.ar}</span>`}<small>${MORE.length}</small></button>`;
@@ -602,7 +603,7 @@ function azkarList(head, headAr, items) {
   return `<div class="ahead"><button class="iconbtn" data-act="back">${rtl() ? I.right : I.left}</button><div class="atitle">${esc(head)}</div>${headAr ? `<div class="atitle ar acc">${esc(headAr)}</div>` : ""}</div>
   ${items.map(d => {
     const n = azkarCounts[d.id] || 0, fin = n >= d.n;
-    return `${d.h ? `<div class="ahsub">${esc(d.h)}</div>` : ""}<div class="card dcard ${fin ? "fin" : ""}" data-act="count" data-id="${d.id}" data-n="${d.n}">
+    return `${d.h ? `<div class="ahsub" dir="${ar() || S.lang === "ur" ? "rtl" : "ltr"}">${esc(ar() ? d.h : ((d.ht && d.ht[S.lang]) || d.h))}</div>` : ""}<div class="card dcard ${fin ? "fin" : ""}" data-act="count" data-id="${d.id}" data-n="${d.n}">
       <div class="darb">${esc(d.ar)}</div>
       ${d.note ? `<div class="dnote">${esc(d.note)}</div>` : ""}
       ${transOf(d) ? `<hr><div class="dtr">${esc(transOf(d))}</div>` : ""}

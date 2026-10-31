@@ -253,3 +253,4 @@ body.inmush #app{max-width:none}
 
 .hero2.nonow{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}
 .hero2.nonow .hrg{justify-self:end}
+.ahsub[dir=ltr]{direction:ltr;text-align:left}
