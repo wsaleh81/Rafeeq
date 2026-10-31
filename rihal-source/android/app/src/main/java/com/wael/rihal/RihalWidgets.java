@@ -160,13 +160,11 @@ final class RihalWidgets {
         if (n != null) {
             v.setTextViewText(R.id.w_ar, n.ar);
             v.setTextViewText(R.id.w_time, n.hm);
-            v.setTextViewText(R.id.w_name, n.name);
-            countdown(v, R.id.w_chrono, n, now, "· %s");
+            countdown(v, R.id.w_chrono, n, now, n.name + " · %s");
         } else {
             v.setTextViewText(R.id.w_ar, "رحّال");
             v.setTextViewText(R.id.w_time, "--:--");
-            v.setTextViewText(R.id.w_name, d.ar() ? "افتح التطبيق" : "Open Rihal");
-            v.setViewVisibility(R.id.w_chrono, View.GONE);
+            v.setChronometer(R.id.w_chrono, SystemClock.elapsedRealtime(), d.ar() ? "افتح التطبيق" : "Open Rihal", false);
         }
         v.setTextViewText(R.id.w_mlabel, d.ar() ? "أقرب مسجد" : "NEAREST");
         if (d.mosque != null && !d.mosque.isEmpty()) {
