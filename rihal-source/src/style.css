@@ -250,3 +250,6 @@ body.inmush #app{max-width:none}
 .irow select{max-width:46%}
 .hn .hnm b{min-width:0}.hn .nowb{padding:2px 6px}
 .linkb{background:none;border:0;padding:0;color:var(--deep);font-weight:800;text-decoration:underline;font-size:inherit}
+
+.hero2.nonow{grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}
+.hero2.nonow .hrg{justify-self:end}

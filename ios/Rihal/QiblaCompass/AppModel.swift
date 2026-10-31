@@ -8,6 +8,7 @@ final class AppModel: ObservableObject {
     @AppStorage("welcomed") var welcomed = false
     @AppStorage("methodID") var methodID = "kuwait"
     @AppStorage("hanafi") var hanafi = false
+    @AppStorage("showNow") var showNow = true
     @AppStorage("usingGPS") var usingGPS = true
     @AppStorage("cityName") var cityName = "Kuwait City"
     @AppStorage("themeID") var themeID = "modern"

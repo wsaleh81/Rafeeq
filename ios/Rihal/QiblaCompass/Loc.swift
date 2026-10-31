@@ -25,7 +25,7 @@ enum Loc {
         "Prayer names": "أسماء الصلوات", "Application language": "لغة التطبيق", "units": "الوحدات", "Celsius (°C)": "سيلسيوس (°م)", "Fahrenheit (°F)": "فهرنهايت (°ف)", "Language": "اللغة", "Temperature": "درجة الحرارة", "Temperature unit": "وحدة الحرارة",
         "City": "المدينة", "Current location": "الموقع الحالي", "Choose a city": "اختر مدينة", "Local time": "الوقت المحلي", "Use my location": "استخدم موقعي", "Detect location automatically": "تحديد الموقع تلقائيًا",
         "Location is off for this app. Turn it on in iPhone Settings, or choose a city.": "الموقع مغلق لهذا التطبيق. فعّله من إعدادات الآيفون أو اختر مدينة.",
-        "Method": "طريقة الحساب", "Adjust times": "تعديل الأوقات", "minutes": "دقائق", "Hanafi Asr": "العصر على المذهب الحنفي",
+        "Method": "طريقة الحساب", "Adjust times": "تعديل الأوقات", "minutes": "دقائق", "Hanafi Asr": "العصر على المذهب الحنفي", "Show current prayer (Now)": "إظهار الصلاة الحالية (الآن)",
         "Adhan alerts": "تنبيهات الأذان", "Notifications are off for this app in iPhone Settings.": "التنبيهات مغلقة لهذا التطبيق في إعدادات الآيفون.",
         "Remind": "التذكير قبل", "Off": "إيقاف", "min": "د", "Sunrise alert": "تنبيه الشروق",
         "Tap the bell next to a prayer to mute just that prayer.": "اضغط على الجرس بجانب الصلاة لكتم تنبيهها فقط.",

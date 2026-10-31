@@ -260,6 +260,7 @@ struct PrayerView: View {
         }()
         let ring = 78 * min(Theme.textScale, 1.4)
         return HStack(spacing: 8) {
+            if !model.showNow { Color.clear.frame(maxWidth: .infinity, maxHeight: 1) } else {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
                     Text(L("NOW")).font(.sys(size: 10, weight: .heavy)).foregroundStyle(Theme.onAccent)
@@ -273,6 +274,7 @@ struct PrayerView: View {
                     .minimumScaleFactor(0.7).lineLimit(1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            }
 
             weatherBlock
 

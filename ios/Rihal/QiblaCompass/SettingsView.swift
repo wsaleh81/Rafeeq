@@ -174,6 +174,12 @@ struct SettingsView: View {
                             Toggle(L("Hanafi Asr"), isOn: $model.hanafi).tint(Theme.mintDeep)
                                 .font(.sys(size: 17)).foregroundStyle(Theme.ink)
                         }.frame(minHeight: 56)
+                        divider
+                        HStack(spacing: 14) {
+                            icon("eye")
+                            Toggle(L("Show current prayer (Now)"), isOn: $model.showNow).tint(Theme.mintDeep)
+                                .font(.sys(size: 17)).foregroundStyle(Theme.ink)
+                        }.frame(minHeight: 56)
                     }
 
                     header(L("notifications"))

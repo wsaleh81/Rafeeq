@@ -24,7 +24,7 @@ const PALETTES = [
 /* ---------- settings store ---------- */
 const DEF = {
   lang: "ar", palette: "ocean", appearance: "auto", textSize: "1", bold: false, azkarSize: "1",
-  method: "kuwait", hanafi: false, off: {}, notif: true, remind: 0, sunriseAlert: false, muted: {},
+  method: "kuwait", hanafi: false, showNow: true, off: {}, notif: true, remind: 0, sunriseAlert: false, muted: {},
   temp: "c", tab: 0, welcomed: false, compass: "classic", alarm: {}, fontID: "system", v: 2,
   place: { name: "Kuwait City", country: "Kuwait", lat: 29.3759, lon: 47.9774, tz: "Asia/Kuwait", iso: "KW" },
   gps: false,
@@ -472,7 +472,8 @@ function tickHome() {
   const nowName = !nowEv ? "—" : nowEv.prayer === "sunrise" ? (ar() ? "الصبح" : L("Morning")) : pName(nowEv.prayer);
   const frac = next && prev ? Math.max(0.02, Math.min(1, (now - prev.date) / (next.date - prev.date))) : 0;
   const C = 2 * Math.PI * 46.5;
-  hero.innerHTML = `<div class="hn"><div class="hnm"><span class="nowb">${L("NOW")}</span><span class="hic">${nowEv ? PI[nowEv.prayer] : I.clock}</span><b>${nowName}</b></div><span class="hnt">${nowEv ? clock(nowEv.date, p.tz) : "--:--"}</span></div>
+  hero.classList.toggle("nonow", S.showNow === false);
+  hero.innerHTML = `${S.showNow === false ? `<div></div>` : `<div class="hn"><div class="hnm"><span class="nowb">${L("NOW")}</span><span class="hic">${nowEv ? PI[nowEv.prayer] : I.clock}</span><b>${nowName}</b></div><span class="hnt">${nowEv ? clock(nowEv.date, p.tz) : "--:--"}</span></div>`}
     ${weatherBlock()}
     <div class="hrg"><svg viewBox="0 0 104 104"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--deep)"/></linearGradient></defs><circle cx="52" cy="52" r="46.5" fill="none" stroke="var(--tile)" stroke-width="7"/><circle cx="52" cy="52" r="46.5" fill="none" stroke="url(#rg)" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C * frac} ${C}" transform="rotate(-90 52 52)"/></svg>
       <div class="hrt"><div class="r1"><i>${next ? PI[next.prayer] : ""}</i>${next ? (ar() ? `${pName(next.prayer)} بعد` : F("{0} in", pName(next.prayer))) : "—"}</div><div class="r2t">${next ? cd(next.date - now) : "--:--:--"}</div><div class="r3">${next ? (ar() ? "عند " + clock(next.date, p.tz) : F("at {0}", clock(next.date, p.tz))) : L("Not available here")}</div></div></div>`;
@@ -618,6 +619,7 @@ const sect = (t, body, foot) => `<div class="shead">${L(t)}</div><div class="car
 /* Settings: same sections and order as the iPhone app */
 const SI = (d, fill) => `<svg viewBox="0 0 24 24" fill="${fill ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const SIC = {
+  eye: SI('<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'),
   palette: I.palette, compass: SI('<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'),
   size: SI('<path d="M3 7V5h10v2M8 5v14M6 19h4M14 12v-1h7v1M17.5 11v8M16 19h3"/>'), book: I.book,
   bold: SI('<path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z"/>'),
@@ -667,7 +669,8 @@ function viewSettings() {
     + `<div class="snote">${ar() ? `الصلاة والقبلة والمساجد والطقس كلها تعتمد على هذا الموقع. المنطقة الزمنية: ${esc(p.tz)}` : esc(F("Prayer times, Qibla, mosques and weather all use this location. Time zone: {0}", p.tz))}</div>`
     + irow("fn", L("Method"), sel("method", METHODS.map(m => [m.id, shortM(L(m.name))]), S.method))
     + irow("pm", L("Adjust times"), `<span class="muted">${L("minutes")}</span>` + chev, "", 'data-act="setOffsets"')
-    + irow("sun", L("Hanafi Asr"), tog("hanafi", S.hanafi)))}
+    + irow("sun", L("Hanafi Asr"), tog("hanafi", S.hanafi))
+    + irow("eye", L("Show current prayer (Now)"), tog("showNow", S.showNow !== false)))}
   ${sgroup("notifications", irow("bell", L("Adhan alerts"), tog("notif", S.notif))
     + (S.notif && alertsDenied ? `<div class="snote">${ar() ? "التنبيهات مغلقة لهذا التطبيق في إعدادات الجهاز. فعّلها من إعدادات الهاتف ← التطبيقات ← رحّال ← الإشعارات." : esc(F("Notifications are off for this app in device settings. ")) + esc(L("Turn them on in phone Settings → Apps → Rihal → Notifications."))}</div>` : "")
     + (S.notif && !alertsDenied && !exactOK ? `<div class="snote">${ar() ? "قد تتأخر التنبيهات بضع دقائق. للتنبيه في الدقيقة نفسها اسمح بـ «المنبّهات والتذكيرات»." : esc(L("Alerts may arrive a few minutes late. For the exact minute, allow Alarms & reminders."))} <button class="linkb" data-act="askExact">${ar() ? "السماح" : L("Allow")}</button></div>` : "")
