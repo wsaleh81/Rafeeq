@@ -193,7 +193,7 @@ final class RihalWidgets {
 
     /** Countdown ring: faint track plus a gold arc from the top, clockwise. */
     static Bitmap ring(float progress) {
-        int size = 360;
+        int size = 240;
         float stroke = size * 0.055f;
         Bitmap b = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Canvas cv = new Canvas(b);

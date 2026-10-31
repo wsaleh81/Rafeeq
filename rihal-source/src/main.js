@@ -31,6 +31,8 @@ const DEF = {
 let S = { ...DEF };
 try { Object.assign(S, JSON.parse(localStorage.getItem("rihal") || "{}")); } catch (e) {}
 delete S.preview;
+function safeTz(tz) { try { new Intl.DateTimeFormat("en", { timeZone: tz }); return tz; } catch (e) { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } }
+if (S.place) S.place.tz = safeTz(S.place.tz);
 if (S.v !== 2) { S.tab = 0; S.v = 2; S.alarm = S.alarm || {}; }
 const save = () => { try { localStorage.setItem("rihal", JSON.stringify(S)); } catch (e) {} };
 const ar = () => S.lang === "ar";
@@ -349,18 +351,25 @@ function weatherBlock() {
     <div class="wblk" aria-label="${ar() ? "الرطوبة" : L("Humidity")}"><span class="wi">💧</span><b>${hum}</b></div></div>`;
 }
 
+// The native sensor runs only while the compass is on screen; it stops on other tabs.
+async function stopCompass() {
+  if (!nativeOn || !sensor.listening) return;
+  sensor.listening = false;
+  try { await NativeCompass.stop(); } catch (e) {}
+}
 function zoneHex(d) { if (d == null) return T.muted; const a = Math.abs(d); return a > 45 ? "#FF5A5F" : a > 15 ? "#FFC93C" : "#3DD68C"; }
 function target() { return sensor.heading; }
 // Heading shown on the dial follows the sensor like the iPhone app: ignore changes under 1 degree,
 // then ease to the new heading over about 0.18 s.
-let goal = null, animating = false;
+let goal = null, animating = false, lastDrawn = null;
 function updateDial() {
   const root = $("#hdial"); if (!root) { animating = false; return; }
   const t = target();
   if (t != null) { const n = $(".hleft > .note:not(.calib)"); if (n && !n.querySelector("button")) n.remove(); }
   if (t != null && (goal == null || Math.abs(diff(t, goal)) >= 1)) goal = t;
   calibNote();
-  if (goal != null && !animating) { animating = true; requestAnimationFrame(animateDial); }
+  if (goal != null && !animating && Math.abs(diff(goal, shown)) >= 0.05) { animating = true; requestAnimationFrame(animateDial); }
+  if (!animating && lastDrawn != null && t != null && Math.abs(diff(t, lastDrawn)) < 0.5) return;
   drawDial();
 }
 function animateDial() {
@@ -374,6 +383,7 @@ function animateDial() {
 function drawDial() {
   const root = $("#hdial"); if (!root) return;
   const t = target(), q = qiblaDeg();
+  lastDrawn = t;
   const d = t == null ? null : diff(q, t), aligned = d != null && Math.abs(d) <= 3;
   dialUpdate(root, T, shown, q, aligned, S.compass === "rings" ? zoneHex(d) : null);
   if (aligned && !wasAligned && navigator.vibrate) navigator.vibrate(40);
@@ -427,7 +437,7 @@ function viewHome() {
   </div>`;
 }
 function afterHome() {
-  dialEls = true;
+  dialEls = true; lastDrawn = null;
   const p = S.place; const sl = $("#sunlayer"); if (sl) sl.innerHTML = sunLayerSVG(sunInfo(p.lat, p.lon, new Date()));
   updateDial(); tickHome();
   startCompass();
@@ -621,7 +631,7 @@ function remoteSearch(q) {
 }
 function renderSheet() { const el = $("#sheet"); el.innerHTML = dirTarget ? dirSheet() : pickerOpen ? viewPicker() : ""; }
 function choose(c) {
-  S.place = { ...c }; S.gps = false; save(); pushLocation(); weather = null; pickerOpen = null; renderSheet(); loadWeather(); scheduleAlerts(); render(); if (S.tab === 1 || NativeWidget) loadMosques();
+  S.place = { ...c, tz: safeTz(c.tz) }; S.gps = false; save(); pushLocation(); weather = null; pickerOpen = null; renderSheet(); loadWeather(); scheduleAlerts(); render(); if (S.tab === 1 || NativeWidget) loadMosques();
 }
 
 /* ---------- render & events ---------- */
@@ -632,7 +642,7 @@ function render() {
   document.body.classList.toggle("inmush", S.tab === 3);
   v.innerHTML = [viewHome, viewMosques, viewAzkhar, () => mushafHTML(ar()), viewSettings][S.tab]();
   $("#tabs").innerHTML = TABS.map((t, i) => `<button class="tab ${i === S.tab ? "sel" : ""}" data-act="tab" data-i="${i}">${I[t[1]]}<span>${L(t[0])}</span></button>`).join("");
-  if (S.tab === 0) afterHome(); else dialEls = null;
+  if (S.tab === 0) afterHome(); else { dialEls = null; stopCompass(); }
   if (S.tab === 3) mushafAfter(ar(), L);
   if (S.tab === 1) loadMosques();
   v.scrollTop = st;
@@ -702,8 +712,8 @@ function welcome() {
 }
 function boot() {
   render(); loadWeather();
-  setInterval(() => { if (S.tab === 0) tickHome(); }, 1000);
-  setInterval(() => { if (S.tab === 0) { const p = S.place; $("#sunlayer") && ($("#sunlayer").innerHTML = sunLayerSVG(sunInfo(p.lat, p.lon, new Date()))); } }, 60000);
+  setInterval(() => { if (S.tab === 0 && !document.hidden) tickHome(); }, 1000);
+  setInterval(() => { if (S.tab === 0 && !document.hidden) { const p = S.place; $("#sunlayer") && ($("#sunlayer").innerHTML = sunLayerSVG(sunInfo(p.lat, p.lon, new Date()))); } }, 60000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { scheduleAlerts(); render(); } });
   if (!S.welcomed) welcome(); else { scheduleAlerts(); if (S.gps) useGPS(true); else if (NativeWidget) loadMosques(); }
   if (NativeWidget) {
