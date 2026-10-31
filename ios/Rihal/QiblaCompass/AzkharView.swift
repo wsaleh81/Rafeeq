@@ -217,19 +217,15 @@ struct AzkharCollectionsView: View {
             UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             showMore = true
         } label: {
-            VStack(alignment: .leading, spacing: 0) {
+            centredTile(count: MoreAzkar.groups.count) {
                 Text("📚").font(.system(size: 28))
                     .frame(width: 52, height: 52)
                     .background(Theme.mintDeep.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                Spacer(minLength: 8)
+            } title: {
                 Text(MoreAzkar.title(langID)).font(.sys(size: 19, weight: .bold, design: Theme.design)).foregroundStyle(Theme.ink)
                     .lineLimit(1).minimumScaleFactor(0.8)
-                HStack {
-                    Spacer()
-                    Text("\(MoreAzkar.groups.count)").font(.sys(size: 13, weight: .bold, design: .rounded)).foregroundStyle(Theme.muted)
-                }
             }
-            .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity)
             .frame(height: 168)
             .background(Theme.card, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
             .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Theme.line, lineWidth: 1))
@@ -257,21 +253,29 @@ struct AzkharCollectionsView: View {
     }
 
     private func front(_ c: AzkharCategory, _ n: Int) -> some View {
-        VStack(alignment: .leading, spacing: 0) {
+        centredTile(count: n) {
             CatIcon(cat: c, size: 26).foregroundStyle(Theme.mintDeep)
                 .frame(width: 52, height: 52)
                 .background(Theme.mintDeep.opacity(0.12), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-            Spacer(minLength: 8)
+        } title: {
             Text(c.title(langID)).font(.sys(size: 19, weight: .bold, design: Theme.design)).foregroundStyle(Theme.ink)
                 .lineLimit(1).minimumScaleFactor(0.8)
-            HStack {
-                Spacer()
-                Text("\(n)").font(.sys(size: 13, weight: .bold, design: .rounded)).foregroundStyle(Theme.muted)
-            }
         }
-        .padding(16).frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.card, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Theme.line, lineWidth: 1))
+    }
+
+    /// Icon and title in the middle of the card, the number of azkar in the top corner.
+    private func centredTile<I: View, T: View>(count: Int, @ViewBuilder icon: () -> I, @ViewBuilder title: () -> T) -> some View {
+        ZStack(alignment: .topTrailing) {
+            VStack(spacing: 10) {
+                icon()
+                title().multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            Text("\(count)").font(.sys(size: 13, weight: .bold, design: .rounded)).foregroundStyle(Theme.muted)
+        }
+        .padding(16)
     }
 
     private func back(_ c: AzkharCategory) -> some View {

@@ -41,7 +41,8 @@ struct RootView: View {
                         guard model.tab != 5 else { return }   // the Mushaf pages use their own swipe
                         let order = [0, 3, 4, 5, 2]            // same order as the tab bar
                         guard let i = order.firstIndex(of: model.tab) else { return }
-                        let j = dx < 0 ? i + 1 : i - 1          // swipe left → next tab
+                        let forward = AppLang.current.isRTL ? dx > 0 : dx < 0   // the tab bar runs right to left in Arabic
+                        let j = forward ? i + 1 : i - 1
                         guard order.indices.contains(j) else { return }
                         withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) { model.tab = order[j] }
                     }
@@ -87,8 +88,10 @@ struct TabBar: View {
     ]
 
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(items, id: \.id) { it in
+        // Arabic and Urdu read from the right: Prayer Times on the right, Settings on the left (like the Android app)
+        let shown = AppLang.current.isRTL ? Array(items.reversed()) : items
+        return HStack(spacing: 2) {
+            ForEach(shown, id: \.id) { it in
                 let on = model.tab == it.id
                 Button { model.tab = it.id } label: {
                     VStack(spacing: 3) {
@@ -117,6 +120,7 @@ struct TabBar: View {
                 .accessibilityLabel(it.title)
             }
         }
+        .environment(\.layoutDirection, .leftToRight)
         .padding(5)
         .modifier(GlassBar())
         .animation(.spring(response: 0.32, dampingFraction: 0.85), value: model.tab)
