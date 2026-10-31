@@ -34,6 +34,7 @@ delete S.preview;
 function safeTz(tz) { try { new Intl.DateTimeFormat("en", { timeZone: tz }); return tz; } catch (e) { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } }
 if (S.place) S.place.tz = safeTz(S.place.tz);
 if (S.v !== 2) { S.tab = 0; S.v = 2; S.alarm = S.alarm || {}; }
+S.tab = 0; // the app always opens on Prayer Times (a widget tap can still open Mosques)
 const save = () => { try { localStorage.setItem("rihal", JSON.stringify(S)); } catch (e) {} };
 const ar = () => S.lang === "ar";
 const F = (t, ...a) => { const x = (U[S.lang] && U[S.lang].tpl[t]) || t; return x.replace(/\{(\d)\}/g, (_, i) => a[i]); };
