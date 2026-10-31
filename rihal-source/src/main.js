@@ -24,7 +24,7 @@ const PALETTES = [
 /* ---------- settings store ---------- */
 const DEF = {
   lang: "ar", palette: "ocean", appearance: "auto", textSize: "1", bold: false, azkarSize: "1",
-  method: "kuwait", hanafi: false, off: {}, notif: false, remind: 0, sunriseAlert: false, muted: {},
+  method: "kuwait", hanafi: false, off: {}, notif: true, remind: 0, sunriseAlert: false, muted: {},
   temp: "c", tab: 0, welcomed: false, compass: "classic", alarm: {}, fontID: "system", v: 2,
   place: { name: "Kuwait City", country: "Kuwait", lat: 29.3759, lon: 47.9774, tz: "Asia/Kuwait", iso: "KW" },
   gps: false,
@@ -35,6 +35,7 @@ delete S.preview;
 function safeTz(tz) { try { new Intl.DateTimeFormat("en", { timeZone: tz }); return tz; } catch (e) { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } }
 if (S.place) S.place.tz = safeTz(S.place.tz);
 if (S.v !== 2) { S.tab = 0; S.v = 2; S.alarm = S.alarm || {}; }
+if (!S.nv) { S.notif = true; S.nv = 1; }   // adhan alerts are on by default, as on iPhone
 S.tab = 0; // the app always opens on Prayer Times (a widget tap can still open Mosques)
 const save = () => { try { localStorage.setItem("rihal", JSON.stringify(S)); } catch (e) {} };
 const ar = () => S.lang === "ar";
@@ -267,6 +268,10 @@ async function scheduleAlerts() {
     const pending = await LocalNotifications.getPending();
     if (pending.notifications.length) await LocalNotifications.cancel({ notifications: pending.notifications });
     if (!S.notif) return;
+    const perm = await LocalNotifications.checkPermissions();
+    if (perm.display !== "granted") { alertsDenied = true; return; }
+    alertsDenied = false;
+    try { exactOK = (await LocalNotifications.checkExactNotificationSetting()).exact_alarm === "granted"; } catch (e) { exactOK = true; }
     await LocalNotifications.createChannel({ id: "adhan", name: "Prayer alerts", importance: 5, visibility: 1, vibration: true });
     await LocalNotifications.createChannel({ id: "adhan_sound", name: "Adhan", importance: 5, visibility: 1, vibration: true, sound: "adhan.wav" });
     const p = S.place, now = Date.now();
@@ -275,9 +280,9 @@ async function scheduleAlerts() {
     const list = []; let id = 1;
     for (const e of ev.slice(0, 120)) {
       const nm = pName(e.prayer), sound = alarmOn(e.prayer);
-      list.push({ id: id++, title: nm, body: p.name, channelId: sound ? "adhan_sound" : "adhan", sound: sound ? "adhan.wav" : undefined, schedule: { at: new Date(e.date), allowWhileIdle: true } });
+      list.push({ id: id++, title: nm, body: p.name, channelId: sound ? "adhan_sound" : "adhan", sound: sound ? "adhan.wav" : undefined, isExactNotification: exactOK, schedule: { at: new Date(e.date), allowWhileIdle: true } });
       if (S.remind > 0 && e.date - S.remind * 60000 > now)
-        list.push({ id: id++, title: ar() ? `${nm} بعد ${S.remind} دقيقة` : F("{0} in {1} minutes", nm, S.remind), body: p.name, channelId: "adhan", schedule: { at: new Date(e.date - S.remind * 60000), allowWhileIdle: true } });
+        list.push({ id: id++, title: ar() ? `${nm} بعد ${S.remind} دقيقة` : F("{0} in {1} minutes", nm, S.remind), body: p.name, channelId: "adhan", isExactNotification: exactOK, schedule: { at: new Date(e.date - S.remind * 60000), allowWhileIdle: true } });
     }
     for (let i = 0; i < list.length; i += 50) await LocalNotifications.schedule({ notifications: list.slice(i, i + 50) });
   } catch (e) { console.log("alerts", e); }
@@ -290,7 +295,18 @@ async function setAlerts(on) {
   } else if (on && typeof Notification !== "undefined") { try { await Notification.requestPermission(); } catch (e) {} }
   alertsDenied = false; S.notif = on; save(); await scheduleAlerts(); render();
 }
-let alertsDenied = false;
+let alertsDenied = false, exactOK = true;
+// First start (and every start while alerts are on): ask for notification permission, like the iPhone app does.
+async function ensureAlertPermission() {
+  if (!nativeOK() || !S.notif) return;
+  try {
+    let r = await LocalNotifications.checkPermissions();
+    if (r.display === "prompt" || r.display === "prompt-with-rationale") r = await LocalNotifications.requestPermissions();
+    alertsDenied = r.display !== "granted";
+  } catch (e) {}
+  await scheduleAlerts(); if (S.tab === 4) render();
+}
+async function askExact() { try { await LocalNotifications.changeExactNotificationSetting(); } catch (e) {} await scheduleAlerts(); render(); }
 const offs = () => S.off || {};
 
 /* ---------- formatting ---------- */
@@ -653,7 +669,8 @@ function viewSettings() {
     + irow("pm", L("Adjust times"), `<span class="muted">${L("minutes")}</span>` + chev, "", 'data-act="setOffsets"')
     + irow("sun", L("Hanafi Asr"), tog("hanafi", S.hanafi)))}
   ${sgroup("notifications", irow("bell", L("Adhan alerts"), tog("notif", S.notif))
-    + (alertsDenied ? `<div class="snote">${ar() ? "التنبيهات مغلقة لهذا التطبيق في إعدادات الجهاز." : F("Notifications are off for this app in device settings. ")}</div>` : "")
+    + (S.notif && alertsDenied ? `<div class="snote">${ar() ? "التنبيهات مغلقة لهذا التطبيق في إعدادات الجهاز. فعّلها من إعدادات الهاتف ← التطبيقات ← رحّال ← الإشعارات." : esc(F("Notifications are off for this app in device settings. ")) + esc(L("Turn them on in phone Settings → Apps → Rihal → Notifications."))}</div>` : "")
+    + (S.notif && !alertsDenied && !exactOK ? `<div class="snote">${ar() ? "قد تتأخر التنبيهات بضع دقائق. للتنبيه في الدقيقة نفسها اسمح بـ «المنبّهات والتذكيرات»." : esc(L("Alerts may arrive a few minutes late. For the exact minute, allow Alarms & reminders."))} <button class="linkb" data-act="askExact">${ar() ? "السماح" : L("Allow")}</button></div>` : "")
     + irow("speaker", ar() ? "صوت الأذان" : L("Adhan sound"), `<button class="playb" data-act="playAdhan" aria-label="${ar() ? "استماع" : "Play"}">${SIC.play}</button>`)
     + irow("remind", L("Remind me before"), sel("remind", remind, S.remind))
     + irow("sunrise", L("Sunrise alert"), tog("sunriseAlert", S.sunriseAlert)))}
@@ -747,6 +764,7 @@ const ACT = {
   setBack() { setSub = null; render(); },
   resetOff() { S.off = {}; save(); scheduleAlerts(); render(); },
   playAdhan() { playAdhan(); },
+  askExact() { askExact(); },
   adj(el) { const k = el.dataset.k; S.off = { ...offs(), [k]: Math.max(-60, Math.min(60, (offs()[k] || 0) + +el.dataset.d)) }; save(); scheduleAlerts(); render(); },
 };
 document.addEventListener("click", e => { const el = e.target.closest("[data-act]"); if (el && ACT[el.dataset.act]) { if (el.tagName === "A") return; ACT[el.dataset.act](el); } });
@@ -777,15 +795,15 @@ function welcome() {
    <p>${ar() ? "القبلة ومواقيت الصلاة والأذكار في أي مكان — يعمل دون إنترنت." : F("Qibla, prayer times and Azkhar, anywhere. Works offline.")}</p>
    <ul><li>${ar() ? "بلا حساب ولا تتبع ولا إعلانات" : F("No account, no tracking, no ads")}</li><li>${ar() ? "الحسابات تتم على هاتفك" : F("Calculated on your phone")}</li></ul>
    <button class="btn big" id="wgps">${L("Allow location while using the app")}</button><button class="btn ghost big" id="wcity">${L("Choose a city instead")}</button></div>`;
-  $("#wgps").onclick = () => { S.welcomed = true; save(); el.innerHTML = ""; useGPS(); };
-  $("#wcity").onclick = () => { S.welcomed = true; save(); el.innerHTML = ""; pickerOpen = "p"; pickerQuery = ""; renderSheet(); };
+  $("#wgps").onclick = () => { S.welcomed = true; save(); el.innerHTML = ""; useGPS(); setTimeout(ensureAlertPermission, 4000); };
+  $("#wcity").onclick = () => { S.welcomed = true; save(); el.innerHTML = ""; pickerOpen = "p"; pickerQuery = ""; renderSheet(); setTimeout(ensureAlertPermission, 1500); };
 }
 function boot() {
   render(); loadWeather();
   setInterval(() => { if (S.tab === 0 && !document.hidden) tickHome(); }, 1000);
   setInterval(() => { if (S.tab === 0 && !document.hidden) { const p = S.place; $("#sunlayer") && ($("#sunlayer").innerHTML = sunLayerSVG(sunInfo(p.lat, p.lon, new Date()))); } }, 60000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) { scheduleAlerts(); render(); } });
-  if (!S.welcomed) welcome(); else { scheduleAlerts(); if (S.gps) useGPS(true); else if (NativeWidget) loadMosques(); }
+  if (!S.welcomed) welcome(); else { setTimeout(ensureAlertPermission, 1500); if (S.gps) useGPS(true); else if (NativeWidget) loadMosques(); }
   if (NativeWidget) {
     // a tap on the widget opens Prayer Times (0) or Mosques (1)
     const go = t => { if (t == null || t < 0) return; S.tab = t; azkarCat = null; save(); render(); };
