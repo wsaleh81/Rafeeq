@@ -185,7 +185,8 @@ body.inmush #view{padding:0;overflow:hidden}
 .sheet.dirsheet{height:auto;padding:10px 16px max(22px,var(--safe-area-inset-bottom,env(safe-area-inset-bottom)))}.dirsheet h3{margin:6px 4px 12px;font-size:1.05rem}.dopt{display:flex;align-items:center;gap:12px;width:100%;min-height:54px;padding:0 16px;margin-bottom:8px;border-radius:16px;background:var(--tile);color:var(--ink);font-weight:800;text-decoration:none}.dopt span:first-child{font-size:1.4rem}
 .mmeta{align-items:center}.mcard{display:flex;flex-direction:column;gap:2px}
 
-.mpage{display:flex;direction:ltr;align-items:center;justify-content:center}
+.mpage{display:flex;direction:ltr;align-items:center;justify-content:center;position:relative}
+.mpage canvas.mcurl{position:absolute;z-index:2;pointer-events:none}
 .mush.land .mbar{position:absolute;top:0;left:0;right:0;z-index:3;padding:max(4px,var(--safe-area-inset-top,env(safe-area-inset-top))) 12px 0;pointer-events:none}.mush.land .mbar>*{pointer-events:auto}.mush.land .mtitle{display:none}.mush.land .mbtn{width:34px;height:34px;opacity:.9}
 .mush.land .mstage{padding-top:0}
 body.inmush #app{max-width:none}

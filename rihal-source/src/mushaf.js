@@ -205,6 +205,61 @@ export async function drawPage(canvas, page, cssW, cssH) {
   cartouche(ctx, W / 2, H - bandY, 64, 24, arDigits(page), false);
 }
 
+/* ---------- page curl: the page bends and follows the finger like paper ---------- */
+const imgCache = new Map();
+function pageImg(p, w, h) {
+  if (p < 1 || p > 604) return Promise.resolve(null);
+  const k = p + "|" + Math.round(w) + "|" + Math.round(h);
+  if (!imgCache.has(k)) {
+    const c = document.createElement("canvas"); c.dataset.page = String(p);
+    imgCache.set(k, drawPage(c, p, w, h).then(() => c));
+    if (imgCache.size > 10) imgCache.delete(imgCache.keys().next().value);
+  }
+  return imgCache.get(k);
+}
+const PAPER = "#FBF8F1";
+function clipHalf(poly, M, n, near) {
+  const out = [], s = P => (P[0] - M[0]) * n[0] + (P[1] - M[1]) * n[1];
+  for (let i = 0; i < poly.length; i++) {
+    const A = poly[i], B = poly[(i + 1) % poly.length], a = s(A), b = s(B);
+    const inA = near ? a <= 0 : a >= 0, inB = near ? b <= 0 : b >= 0;
+    if (inA) out.push(A);
+    if (inA !== inB) { const t = a / (a - b); out.push([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t]); }
+  }
+  return out;
+}
+function poly(ctx, P) { ctx.beginPath(); P.forEach((q, i) => (i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]))); ctx.closePath(); }
+// o: { w, h, tw, cy, base: [{ img, x }], front, back }; F = where the lifted corner is now
+function drawCurl(cv, o, F) {
+  const ctx = cv.getContext("2d"), W = o.w, H = o.h;
+  ctx.setTransform(cv._dpr, 0, 0, cv._dpr, 0, 0); ctx.clearRect(0, 0, o.tw, H);
+  for (const b of o.base) { if (b.img) ctx.drawImage(b.img, b.x, 0, W, H); else { ctx.fillStyle = "#fff"; ctx.fillRect(b.x, 0, W, H); } }
+  const C = [0, o.cy], dx = F[0] - C[0], dy = F[1] - C[1], len = Math.hypot(dx, dy);
+  if (len < 0.5) { if (o.front) ctx.drawImage(o.front, 0, 0, W, H); return; }
+  const n = [dx / len, dy / len], M = [(C[0] + F[0]) / 2, (C[1] + F[1]) / 2], rect = [[0, 0], [W, 0], [W, H], [0, H]];
+  const near = clipHalf(rect, M, n, true), far = clipHalf(rect, M, n, false);
+  const k = 2 * (M[0] * n[0] + M[1] * n[1]), ra = 1 - 2 * n[0] * n[0], rb = -2 * n[0] * n[1], rd = 1 - 2 * n[1] * n[1];
+  const R = P => [ra * P[0] + rb * P[1] + k * n[0], rb * P[0] + rd * P[1] + k * n[1]];
+  const flap = near.map(R);
+  if (near.length > 2) { // soft shadow on the page underneath, next to the fold
+    ctx.save(); poly(ctx, near); ctx.clip();
+    const g = ctx.createLinearGradient(M[0], M[1], M[0] - n[0] * 46, M[1] - n[1] * 46);
+    g.addColorStop(0, "rgba(0,0,0,.30)"); g.addColorStop(1, "rgba(0,0,0,0)"); ctx.fillStyle = g; ctx.fillRect(0, 0, o.tw, H); ctx.restore();
+  }
+  if (far.length > 2 && o.front) { ctx.save(); poly(ctx, far); ctx.clip(); ctx.drawImage(o.front, 0, 0, W, H); ctx.restore(); }
+  if (flap.length > 2) {
+    ctx.save(); ctx.shadowColor = "rgba(0,0,0,.35)"; ctx.shadowBlur = 18; poly(ctx, flap); ctx.fillStyle = PAPER; ctx.fill(); ctx.restore();
+    ctx.save(); poly(ctx, flap); ctx.clip(); ctx.transform(ra, rb, rb, rd, k * n[0], k * n[1]);
+    if (o.back) { ctx.transform(-1, 0, 0, 1, W, 0); ctx.drawImage(o.back, 0, 0, W, H); } // back of the leaf = the next page of the open book
+    else if (o.front) { ctx.globalAlpha = 0.09; ctx.drawImage(o.front, 0, 0, W, H); ctx.globalAlpha = 1; } // ink showing through the paper
+    ctx.restore();
+    ctx.save(); poly(ctx, flap); ctx.clip(); const e = Math.max(20, len / 2);
+    const g = ctx.createLinearGradient(M[0], M[1], M[0] + n[0] * e, M[1] + n[1] * e);
+    g.addColorStop(0, "rgba(0,0,0,.22)"); g.addColorStop(0.22, "rgba(255,255,255,.38)"); g.addColorStop(1, "rgba(0,0,0,.07)");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, o.tw, H); ctx.restore();
+  }
+}
+
 /* ---------- reader UI ---------- */
 let state = { page: 1, index: false, byJuz: false, zoom: 1, tx: 0, ty: 0 };
 try { state.page = Math.min(604, Math.max(1, +localStorage.getItem("rafeeq_mpage") || 1)); } catch (e) {}
@@ -229,12 +284,60 @@ export function mushafAfter(isAr, L) {
   const paint = () => { const cv = document.getElementById("mcanvas"), cv2 = document.getElementById("mcanvas2"); if (!cv) return;
     const [w, h, land] = fit(); document.getElementById("mush").classList.toggle("land", land);
     if (land && state.page % 2 === 0) state.page -= 1;
-    cv.dataset.page = String(state.page); drawPage(cv, state.page, w, h);
-    if (land && state.page + 1 <= 604) { cv2.style.display = ""; cv2.dataset.page = String(state.page + 1); drawPage(cv2, state.page + 1, w, h); }
+    const jobs = []; cv.dataset.page = String(state.page); jobs.push(drawPage(cv, state.page, w, h));
+    if (land && state.page + 1 <= 604) { cv2.style.display = ""; cv2.dataset.page = String(state.page + 1); jobs.push(drawPage(cv2, state.page + 1, w, h)); }
     else { cv2.style.display = "none"; cv2.dataset.page = ""; }
     document.getElementById("mtitle").textContent = "سورة " + SURAS[suraOfPage(state.page) - 1].ar;
-    try { localStorage.setItem("rafeeq_mpage", String(state.page)); } catch (e) {} };
-  const go = d => { const step = isLand() ? 2 : 1; const n = Math.min(604, Math.max(1, state.page + d * step)); if (n !== state.page) { state.page = n; resetZoom(); paint(); } };
+    try { localStorage.setItem("rafeeq_mpage", String(state.page)); } catch (e) {}
+    // get the neighbouring pages ready so a turn starts at once
+    const st = land ? 2 : 1; for (const q of [state.page + st, state.page - st]) { pageImg(q, w, h); if (land) pageImg(q + 1, w, h); }
+    return Promise.all(jobs); };
+  // d = 1 next page, -1 previous. Builds the layers for the turning leaf (Arabic book: the left edge lifts and turns to the right).
+  let curl = null;
+  const startCurl = async (d, y0) => {
+    const [w, h, land] = fit(), step = land ? 2 : 1, p = state.page, target = p + d * step;
+    if (target < 1 || target > 604 || curl) return null;
+    const c = { d, w, h, land, tw: land ? 2 * w : w, cy: y0 < h / 2 ? 0 : h, target, ready: false, F: [d > 0 ? 0 : 2 * w, 0], done: false };
+    c.F[1] = c.cy; curl = c;
+    const cv = document.createElement("canvas"), dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.className = "mcurl"; cv.width = Math.round(c.tw * dpr); cv.height = Math.round(h * dpr); cv.style.width = c.tw + "px"; cv.style.height = h + "px"; cv._dpr = dpr;
+    c.cv = cv;
+    const I = q => pageImg(q, w, h);
+    if (!land) {
+      const [front, under] = await Promise.all(d > 0 ? [I(p), I(p + 1)] : [I(p - 1), I(p)]);
+      c.o = { w, h, tw: c.tw, cy: c.cy, front, back: null, base: [{ img: under, x: 0 }] };
+    } else if (d > 0) {
+      const [front, back, left, right] = await Promise.all([I(p + 1), I(p + 2), I(p + 3), I(p)]);
+      c.o = { w, h, tw: c.tw, cy: c.cy, front, back, base: [{ img: left, x: 0 }, { img: right, x: w }] };
+    } else {
+      const [front, back, left, right] = await Promise.all([I(p - 1), I(p), I(p + 1), I(p - 2)]);
+      c.o = { w, h, tw: c.tw, cy: c.cy, front, back, base: [{ img: left, x: 0 }, { img: right, x: w }] };
+    }
+    if (curl !== c) return null;
+    const host = document.getElementById("mpage"); if (!host) { curl = null; return null; }
+    const hr = host.getBoundingClientRect(); c.left = hr.left + (hr.width - c.tw) / 2; c.top = hr.top + (hr.height - h) / 2;
+    cv.style.left = (hr.width - c.tw) / 2 + "px"; cv.style.top = (hr.height - h) / 2 + "px";
+    host.appendChild(cv); c.ready = true; drawCurl(cv, c.o, c.F);
+    return c;
+  };
+  const setCorner = (c, fx, fy) => {
+    const W = c.w; fx = Math.max(0, Math.min(2 * W, fx));
+    let F = [fx, fy]; const S = [W, c.cy], ds = Math.hypot(F[0] - S[0], F[1] - S[1]);
+    if (ds > W) F = [S[0] + (F[0] - S[0]) * W / ds, S[1] + (F[1] - S[1]) * W / ds]; // the leaf stays attached at the spine
+    c.F = F; if (c.ready) drawCurl(c.cv, c.o, F);
+  };
+  const finishCurl = (c, complete) => new Promise(res => {
+    const from = c.F.slice(), toX = complete === (c.d > 0) ? 2 * c.w : 0, t0 = performance.now(), dur = 300;
+    const tick = now => {
+      const t = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - t, 3);
+      setCorner(c, from[0] + (toX - from[0]) * e, from[1] + (c.cy - from[1]) * e);
+      if (t < 1) return requestAnimationFrame(tick);
+      const end = () => { c.cv.remove(); if (curl === c) curl = null; res(); };
+      if (complete) { state.page = c.target; resetZoom(); Promise.resolve(paint()).then(end, end); } else end();
+    };
+    requestAnimationFrame(tick);
+  });
+  const go = async d => { if (curl) return; const c = await startCurl(d, fit()[1] * 0.85); if (c) finishCurl(c, true); };
   window.onresize = () => { if (document.getElementById("mush")) paint(); };
   const mp = document.getElementById("mpage");
   const resetZoom = () => { state.zoom = 1; state.tx = 0; state.ty = 0; mp.style.transform = ""; };
@@ -243,16 +346,29 @@ export function mushafAfter(isAr, L) {
   let t0 = null, pinch = null, lastTap = 0;
   stage.addEventListener("touchstart", e => {
     if (e.touches.length === 2) { pinch = { d: Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY), z: state.zoom }; t0 = null; }
-    else if (e.touches.length === 1) { t0 = { x: e.touches[0].clientX, y: e.touches[0].clientY, tx: state.tx, ty: state.ty, t: Date.now() }; }
+    else if (e.touches.length === 1 && !curl) { t0 = { x: e.touches[0].clientX, y: e.touches[0].clientY, tx: state.tx, ty: state.ty, t: Date.now(), c: null, starting: false }; }
   }, { passive: true });
   stage.addEventListener("touchmove", e => {
     if (pinch && e.touches.length === 2) { const d = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); state.zoom = Math.min(4, Math.max(1, pinch.z * d / pinch.d)); applyZoom(); e.preventDefault(); }
     else if (t0 && state.zoom > 1) { state.tx = t0.tx + e.touches[0].clientX - t0.x; state.ty = t0.ty + e.touches[0].clientY - t0.y; applyZoom(); e.preventDefault(); }
+    else if (t0 && state.zoom === 1) {
+      const x = e.touches[0].clientX, y = e.touches[0].clientY, dx = x - t0.x, dy = y - t0.y;
+      t0.lx = x; t0.ly = y;
+      if (!t0.c && !t0.starting && Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) {
+        // swipe right = next page (like a printed Mushaf), left = previous
+        t0.starting = true; const r = stage.getBoundingClientRect();
+        startCurl(dx > 0 ? 1 : -1, t0.y - r.top).then(c => { if (!t0 || !c) return; t0.c = c; move(); });
+      }
+      const move = () => { const c = t0 && t0.c; if (!c) return; const tr = (t0.lx - t0.x) * 2, fy = c.cy + Math.max(-c.h * 0.25, Math.min(c.h * 0.25, (t0.ly - t0.y) * 0.4));
+        setCorner(c, c.d > 0 ? tr : 2 * c.w + tr, fy); };
+      if (t0.c) { move(); e.preventDefault(); }
+    }
   }, { passive: false });
   stage.addEventListener("touchend", e => {
     if (pinch) { if (e.touches.length < 2) { pinch = null; if (state.zoom < 1.05) resetZoom(); } return; }
     if (!t0) return; const x = e.changedTouches[0].clientX, y = e.changedTouches[0].clientY, dx = x - t0.x, dy = y - t0.y, now = Date.now(), moved = Math.abs(dx) + Math.abs(dy);
-    if (state.zoom === 1 && Math.abs(dx) > 55 && Math.abs(dx) > Math.abs(dy) * 1.4) go(dx > 0 ? 1 : -1);
+    if (t0.c) { const c = t0.c, fast = Date.now() - t0.t < 260 && Math.abs(dx) > 40; finishCurl(c, fast || (c.d > 0 ? c.F[0] > c.w * 0.45 : c.F[0] < c.w * 1.55)); }
+    else if (t0.starting) { const d = dx > 0 ? 1 : -1; const wait = setInterval(() => { if (curl && curl.ready) { clearInterval(wait); if (Math.abs(dx) > 40) finishCurl(curl, true); else finishCurl(curl, false); } else if (!curl) clearInterval(wait); }, 16); void d; }
     else if (moved < 10) { if (now - lastTap < 300) { if (state.zoom > 1) resetZoom(); else { state.zoom = 2.2; const r = stage.getBoundingClientRect(); state.tx = (r.width / 2 - (x - r.left)) * 1.2; state.ty = (r.height / 2 - (y - r.top)) * 1.2; applyZoom(); } lastTap = 0; } else lastTap = now; }
     t0 = null;
   }, { passive: true });
