@@ -599,26 +599,68 @@ const sel = (k, opts, cur) => `<select data-k="${k}">${opts.map(([v, t]) => `<op
 const tog = (k, on) => `<label class="sw"><input type="checkbox" data-k="${k}" ${on ? "checked" : ""}><i></i></label>`;
 const srow = (label, ctl, sub) => `<div class="srow"><div class="sl">${label}${sub ? `<small>${sub}</small>` : ""}</div>${ctl}</div>`;
 const sect = (t, body, foot) => `<div class="shead">${L(t)}</div><div class="card sbox">${body}</div>${foot ? `<div class="sfoot">${foot}</div>` : ""}`;
+/* Settings: same sections and order as the iPhone app */
+const SI = (d, fill) => `<svg viewBox="0 0 24 24" fill="${fill ? "currentColor" : "none"}" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+const SIC = {
+  palette: I.palette, compass: SI('<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'),
+  size: SI('<path d="M3 7V5h10v2M8 5v14M6 19h4M14 12v-1h7v1M17.5 11v8M16 19h3"/>'), book: I.book,
+  bold: SI('<path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z"/>'),
+  globe: SI('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>'),
+  font: SI('<path d="M4 19l6.5-14h1L18 19M6.8 13.5h8.4"/>'), loc: PI.gps, pin: I.pin, clock: I.clock,
+  fn: SI('<path d="M15 4h-1.5A2.5 2.5 0 0 0 11 6.5v11A2.5 2.5 0 0 1 8.5 20H7M8 11h7"/>'),
+  pm: SI('<circle cx="12" cy="12" r="9"/><path d="M12 6.5v6M9 9.5h6M9 16h6"/>'), sun: PI.dhuhr, bell: I.bell,
+  speaker: SI('<path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M15.5 9.5a3.5 3.5 0 0 1 0 5M18 7a7 7 0 0 1 0 10"/>'),
+  remind: PI.alarm, sunrise: PI.sunrise, temp: SI('<path d="M10 14.2V5a2 2 0 0 1 4 0v9.2a4 4 0 1 1-4 0z"/><path d="M12 11v5"/>'),
+  info: SI('<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.6v.2"/>'),
+  play: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="currentColor"/><path d="M10 8l6 4-6 4z" fill="var(--card)"/></svg>',
+};
+const irow = (ic, label, ctl, sub, act) => `<${act ? `button class="srow irow lbtn" ${act}` : 'div class="srow irow"'}><span class="sic">${SIC[ic] || ""}</span><div class="sl">${label}${sub ? `<small>${sub}</small>` : ""}</div>${ctl || ""}</${act ? "button" : "div"}>`;
+const seg = (k, opts, cur) => `<div class="seg">${opts.map(([v, t]) => `<button class="${String(v) === String(cur) ? "on" : ""}" data-act="seg" data-k="${k}" data-v="${v}">${esc(t)}</button>`).join("")}</div>`;
+const sgroup = (t, body) => `<div class="shead">${L(t)}</div><div class="card sbox">${body}</div>`;
+const gmt = tz => { try { const p = new Intl.DateTimeFormat("en-GB", { timeZone: tz, timeZoneName: "shortOffset" }).formatToParts(new Date()).find(x => x.type === "timeZoneName"); return p ? p.value.replace("GMT", "GMT") : ""; } catch (e) { return ""; } };
+let setSub = null;
+let adhanAudio = null;
+function playAdhan() {
+  try { if (adhanAudio && !adhanAudio.paused) { adhanAudio.pause(); adhanAudio = null; return; } adhanAudio = new Audio("adhan.wav"); adhanAudio.play(); } catch (e) {}
+}
+function viewOffsets() {
+  const rows = PRAYERS.map(k => { const v = offs()[k] || 0; return `<div class="srow"><div class="sl"><b>${pName(k)}</b></div><span class="offv ${v ? "set" : ""}">${v > 0 ? "+" : ""}${v} ${L("min")}</span><div class="step"><button data-act="adj" data-k="${k}" data-d="-1">−</button><button data-act="adj" data-k="${k}" data-d="1">+</button></div></div>`; }).join("");
+  return `<div class="ahead"><button class="iconbtn" data-act="setBack">${rtl() ? I.right : I.left}</button><div class="atitle">${L("Adjust times")}</div></div>
+  <div class="sfoot" style="margin:0 6px 10px">${L("Add or subtract minutes to match your local mosque or official timetable.")}</div>
+  <div class="card sbox">${rows}</div><button class="card resetb" data-act="resetOff">${ar() ? "إعادة الكل إلى 0" : L("Reset all to 0")}</button>`;
+}
 function viewSettings() {
+  if (setSub === "offsets") return viewOffsets();
   const tsizes = [["1", L("Standard")], ["1.15", L("Large")], ["1.3", L("Larger")], ["1.5", L("Largest")]];
   const asizes = [["1", L("Standard")], ["1.2", L("Large")], ["1.4", L("Larger")], ["1.7", L("Largest")]];
-  const sw = PALETTES.map(p => `<button class="sw1 ${p.id === S.palette ? "sel" : ""}" data-act="pal" data-id="${p.id}" aria-label="${p.title}"><i style="background:${H(p.c.accent[0])}"></i></button>`).join("");
-  const adj = PRAYERS.map(k => `<div class="srow"><div class="sl">${pName(k)}</div><div class="step"><button data-act="adj" data-k="${k}" data-d="-1">−</button><b>${(offs()[k] || 0) > 0 ? "+" : ""}${offs()[k] || 0}</b><button data-act="adj" data-k="${k}" data-d="1">+</button></div></div>`).join("");
+  const sw = PALETTES.map(p => `<button class="sw2 ${p.id === S.palette ? "sel" : ""}" data-act="pal" data-id="${p.id}" aria-label="${p.title}"><i style="background:${H(p.c.accent[0])}">${p.id === S.palette ? I.check : ""}</i></button>`).join("");
+  const p = S.place, chk = `<span class="sck">${I.check}</span>`, chev = `<span class="schev">${rtl() ? I.left : I.right}</span>`;
+  const shortM = n => ({ "Muslim World League": "MWL", "Egyptian General Authority": "Egypt", "Karachi (UIS)": "Karachi", "ISNA (North America)": "ISNA", "Umm al-Qura (Makkah)": "Umm al-Qura" }[n] || n);
+  const remind = [[0, L("Off")], ...[5, 10, 15, 20, 30].map(m => [m, m + " " + L("min")])];
   return `${title("Settings", "الإعدادات")}
-  ${sect("Location", `<button class="srow lbtn" data-act="gps"><div class="sl">${L("Current location")}<small>${S.gps ? esc(S.place.name) : esc(L("Use my location"))}</small></div>${S.gps ? "✓" : ""}</button>` +
-    `<button class="srow lbtn" data-act="picker"><div class="sl">${L("Choose a city")}<small>${S.gps ? "" : esc(S.place.name)}</small></div>${S.gps ? "›" : "✓ ›"}</button>` +
-    srow(L("Local time there"), `<b class="muted">${tf(S.place.tz).format(new Date())}</b>`, esc(S.place.tz)),
-    ar() ? "الصلاة والقبلة والمساجد والطقس كلها تعتمد على هذا الموقع." : F("Prayer times, Qibla, mosques and weather all use this location."))}
-  ${sect("theme", `<div class="swatches">${sw}</div>` + srow(L("Compass style"), sel("compass", [["classic", L("Classic")], ["rings", L("Rings")]], S.compass === "rings" ? "rings" : "classic")) + srow(L("Appearance"), sel("appearance", [["auto", L("Auto")], ["light", L("Light")], ["dark", L("Dark")]], S.appearance)))}
-  ${sect("accessibility", srow(L("Text size"), sel("textSize", tsizes, S.textSize)) + srow(L("Azkhar text size"), sel("azkarSize", asizes, S.azkarSize)) + srow(L("Bold text"), tog("bold", S.bold)))}
-  ${sect("language", srow(L("Application language"), sel("lang", LANGS, S.lang)) + srow(L("App font"), sel("fontID", FONTS.map(([v, t]) => [v, v === "system" ? L("System default") : t]), S.fontID)))}
-  ${sect("prayers", srow(L("Method"), sel("method", METHODS.map(m => [m.id, L(m.name)]), S.method)) + srow(L("Hanafi Asr"), tog("hanafi", S.hanafi)))}
-  ${sect("Adjust times", adj, L("Add or subtract minutes to match your local mosque or official timetable."))}
-  ${sect("notifications", srow(L("Adhan alerts"), tog("notif", S.notif)) + srow(L("Remind"), sel("remind", [[0, L("Off")], [5, "5 " + L("min")], [10, "10 " + L("min")], [15, "15 " + L("min")], [30, "30 " + L("min")]], S.remind)) + srow(L("Sunrise alert"), tog("sunriseAlert", S.sunriseAlert)),
-    (alertsDenied ? (ar() ? "التنبيهات مغلقة لهذا التطبيق في إعدادات الجهاز. " : F("Notifications are off for this app in device settings. ")) : "") + L("Tap the bell next to a prayer to mute just that prayer.") + (nativeOK() ? "" : (ar() ? " التنبيهات المجدولة تعمل في تطبيق الأندرويد." : " Scheduled alerts work in the Android app.")))}
-  ${sect("units", srow(L("Temperature"), sel("temp", [["c", L("Celsius (°C)")], ["f", L("Fahrenheit (°F)")]], S.temp)))}
-  <div class="shead">${L("About")}</div><div class="card sbox"><div class="srow"><div class="sl">Rihal 1.0</div></div><a class="srow" href="${PRIVACY_URL}" target="_blank" rel="noopener"><div class="sl">${PRIVACY_LABEL[S.lang] || "Privacy policy"}</div><span aria-hidden="true">↗</span></a></div>
-  <div class="sfoot">${ar() ? "كل الحسابات تتم على هذا الجهاز. تُرسل مدينتك التقريبية فقط عند البحث عن المساجد والطقس." : F("Everything is calculated on this device. Only your approximate location is sent when you look up mosques or weather.")}</div>`;
+  ${sgroup("theme", `<div class="srow irow"><span class="sic">${SIC.palette}</span><div class="sl"><b>${L("Theme")}</b></div></div>
+    <div class="swatches2">${sw}</div>
+    ${seg("appearance", [["auto", L("Auto")], ["light", L("Light")], ["dark", L("Dark")]], S.appearance)}
+    <div class="srow irow nob"><span class="sic">${SIC.compass}</span><div class="sl">${L("Compass style")}</div></div>
+    ${seg("compass", [["classic", L("Classic")], ["rings", L("Rings")]], S.compass === "rings" ? "rings" : "classic")}<div style="height:12px"></div>`)}
+  ${sgroup("accessibility", irow("size", L("Text size"), sel("textSize", tsizes, S.textSize)) + irow("book", L("Azkhar text size"), sel("azkarSize", asizes, S.azkarSize)) + irow("bold", L("Bold text"), tog("bold", S.bold)))}
+  ${sgroup("language", irow("globe", L("Application language"), sel("lang", LANGS, S.lang)) + irow("font", L("App font"), sel("fontID", FONTS.map(([v, t]) => [v, v === "system" ? L("System default") : t]), S.fontID)))}
+  ${sgroup("prayers", irow("loc", L("Current location"), S.gps ? chk : "", esc(S.gps ? p.name : L("Use my location")), 'data-act="gps"')
+    + irow("pin", L("Choose a city"), (S.gps ? "" : chk) + chev, S.gps ? "" : esc(p.name), 'data-act="picker"')
+    + irow("clock", L("Local time"), `<b class="muted tnum">${tf(p.tz).format(new Date())} · ${gmt(p.tz)}</b>`)
+    + `<div class="snote">${ar() ? `الصلاة والقبلة والمساجد والطقس كلها تعتمد على هذا الموقع. المنطقة الزمنية: ${esc(p.tz)}` : esc(F("Prayer times, Qibla, mosques and weather all use this location. Time zone: {0}", p.tz))}</div>`
+    + irow("fn", L("Method"), sel("method", METHODS.map(m => [m.id, shortM(L(m.name))]), S.method))
+    + irow("pm", L("Adjust times"), `<span class="muted">${L("minutes")}</span>` + chev, "", 'data-act="setOffsets"')
+    + irow("sun", L("Hanafi Asr"), tog("hanafi", S.hanafi)))}
+  ${sgroup("notifications", irow("bell", L("Adhan alerts"), tog("notif", S.notif))
+    + (alertsDenied ? `<div class="snote">${ar() ? "التنبيهات مغلقة لهذا التطبيق في إعدادات الجهاز." : F("Notifications are off for this app in device settings. ")}</div>` : "")
+    + irow("speaker", ar() ? "صوت الأذان" : L("Adhan sound"), `<button class="playb" data-act="playAdhan" aria-label="${ar() ? "استماع" : "Play"}">${SIC.play}</button>`)
+    + irow("remind", L("Remind me before"), sel("remind", remind, S.remind))
+    + irow("sunrise", L("Sunrise alert"), tog("sunriseAlert", S.sunriseAlert)))}
+  <div class="sfoot">${ar() ? "بجانب كل صلاة: زر المنبّه يشغّل الأذان، وزر الجرس يرسل تنبيهًا بدون أذان." : L("Next to each prayer: the alarm button plays the adhan, the bell sends a notification without it.")}</div>
+  ${sgroup("units", irow("temp", L("Temperature"), sel("temp", [["c", L("Celsius (°C)")], ["f", L("Fahrenheit (°F)")]], S.temp)))}
+  <div class="card sbox" style="margin-top:22px">${irow("info", L("About"), `<span class="muted">Rihal 1.0</span>`)}<a class="srow irow" href="${PRIVACY_URL}" target="_blank" rel="noopener"><span class="sic"></span><div class="sl">${PRIVACY_LABEL[S.lang] || "Privacy policy"}</div><span aria-hidden="true">↗</span></a></div>
+  <div class="sfoot center">${esc(L("Qibla and prayer times are calculated on this device. Your approximate location is sent only when you look up mosques, weather or cities."))}</div>`;
 }
 
 /* ----- place picker sheet ----- */
@@ -672,7 +714,7 @@ function render() {
 }
 function vibr() { try { navigator.vibrate && navigator.vibrate(12); } catch (e) {} }
 const ACT = {
-  tab(el) { S.tab = +el.dataset.i; azkarCat = null; save(); render(); $("#view").scrollTop = 0; },
+  tab(el) { setSub = null; S.tab = +el.dataset.i; azkarCat = null; save(); render(); $("#view").scrollTop = 0; },
   picker() { pickerOpen = "p"; pickerQuery = ""; pickerRemote = []; renderSheet(); },
   mpicker() { pickerOpen = "p"; pickerQuery = ""; pickerRemote = []; renderSheet(); },
   closeSheet() { pickerOpen = null; dirTarget = null; renderSheet(); },
@@ -700,6 +742,11 @@ const ACT = {
   mgo(el) { mushafSetPage(+el.dataset.p); render(); },
   mseg(el) { mushafBy(el.dataset.v === "1"); },
   pal(el) { S.palette = el.dataset.id; save(); render(); },
+  seg(el) { S[el.dataset.k] = el.dataset.v; save(); render(); },
+  setOffsets() { setSub = "offsets"; render(); $("#view").scrollTop = 0; },
+  setBack() { setSub = null; render(); },
+  resetOff() { S.off = {}; save(); scheduleAlerts(); render(); },
+  playAdhan() { playAdhan(); },
   adj(el) { const k = el.dataset.k; S.off = { ...offs(), [k]: Math.max(-60, Math.min(60, (offs()[k] || 0) + +el.dataset.d)) }; save(); scheduleAlerts(); render(); },
 };
 document.addEventListener("click", e => { const el = e.target.closest("[data-act]"); if (el && ACT[el.dataset.act]) { if (el.tagName === "A") return; ACT[el.dataset.act](el); } });

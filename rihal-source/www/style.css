@@ -227,3 +227,24 @@ body.inmush #app{max-width:none}
 .dirbtn.round svg{width:19px;height:19px}
 
 .dialsvg.aligned .mh-arch,.dialsvg.aligned .mh-in{filter:none}
+
+/* Settings (same layout as the iPhone app) */
+.irow{gap:14px}.irow .sl{flex:1;min-width:0}.irow .sl small{font-size:.8rem;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sic{width:26px;height:26px;flex:none;color:var(--muted);display:grid;place-items:center}.sic svg{width:22px;height:22px}
+.sck{width:20px;height:20px;color:var(--deep);flex:none}.sck svg,.schev svg{width:100%;height:100%}.schev{width:16px;height:16px;color:var(--muted);flex:none}
+.irow.lbtn{display:flex;cursor:pointer}
+.srow.nob{border-top:0;min-height:40px}
+.swatches2{display:flex;justify-content:space-between;padding:6px 2px 12px}
+.sw2{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--line);background:none;padding:0}
+.sw2 i{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;color:#fff}.sw2 i svg{width:16px;height:16px}
+.sw2.sel{border:2.5px solid var(--ink)}
+.seg{display:flex;background:var(--tile);border-radius:10px;padding:2px;gap:2px}
+.seg button{flex:1;min-height:34px;border-radius:8px;font-weight:700;font-size:.92rem;color:var(--ink);background:none}
+.seg button.on{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.25)}
+.snote{font-size:.78rem;color:var(--muted);line-height:1.45;padding:2px 0 10px 40px}[dir=rtl] .snote{padding:2px 40px 10px 0}
+.tnum{font-variant-numeric:tabular-nums;font-weight:600}
+.playb{width:34px;height:34px;color:var(--deep);background:none;padding:0}.playb svg{width:100%;height:100%}
+.offv{font-variant-numeric:tabular-nums;color:var(--muted);margin-inline-end:8px}.offv.set{color:var(--deep)}
+.resetb{display:block;width:100%;min-height:50px;margin-top:12px;font-weight:800;color:var(--ink);border-radius:25px}
+.sfoot.center{text-align:center}
+.irow select{max-width:46%}
