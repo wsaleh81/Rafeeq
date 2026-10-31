@@ -24,12 +24,13 @@ const PALETTES = [
 const DEF = {
   lang: "ar", palette: "ocean", appearance: "auto", textSize: "1", bold: false, azkarSize: "1",
   method: "kuwait", hanafi: false, off: {}, notif: false, remind: 0, sunriseAlert: false, muted: {},
-  temp: "c", preview: false, tab: 0, welcomed: false, compass: "classic", alarm: {}, fontID: "system", v: 2,
+  temp: "c", tab: 0, welcomed: false, compass: "classic", alarm: {}, fontID: "system", v: 2,
   place: { name: "Kuwait City", country: "Kuwait", lat: 29.3759, lon: 47.9774, tz: "Asia/Kuwait", iso: "KW" },
   gps: false,
 };
 let S = { ...DEF };
 try { Object.assign(S, JSON.parse(localStorage.getItem("rihal") || "{}")); } catch (e) {}
+delete S.preview;
 if (S.v !== 2) { S.tab = 0; S.v = 2; S.alarm = S.alarm || {}; }
 const save = () => { try { localStorage.setItem("rihal", JSON.stringify(S)); } catch (e) {} };
 const ar = () => S.lang === "ar";
@@ -119,7 +120,7 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => { 
 
 /* ---------- compass sensor ---------- */
 const sensor = { heading: null, accuracy: null, available: true, listening: false, needPermission: false };
-let shown = 0, previewDeg = 0, dialEls = null, wasAligned = false;
+let shown = 0, dialEls = null, wasAligned = false;
 // Android: native fused compass (CompassPlugin.java) does tilt compensation, declination and smoothing.
 const NativeCompass = Capacitor.getPlatform() === "android" ? registerPlugin("Compass") : null;
 let nativeOn = false;
@@ -168,7 +169,7 @@ function onOrient(e) {
   const h = headingFrom(e); if (h == null || isNaN(h)) return;
   sensor.heading = h; sensor.accuracy = e.webkitCompassAccuracy ?? null;
   const now = performance.now(); if (now - lastSensor < 40) return; lastSensor = now;
-  if (S.tab === 0 && !S.preview) updateDial();
+  if (S.tab === 0) updateDial();
 }
 async function startCompass() {
   if (sensor.listening) return;
@@ -180,7 +181,7 @@ async function startCompass() {
           nativeOn = true;
           NativeCompass.addListener("heading", o => {
             sensor.heading = o.heading; sensor.accuracy = o.accuracy;
-            if (S.tab === 0 && !S.preview) updateDial();
+            if (S.tab === 0) updateDial();
           });
         }
         sensor.listening = true;
@@ -349,15 +350,15 @@ function weatherBlock() {
 }
 
 function zoneHex(d) { if (d == null) return T.muted; const a = Math.abs(d); return a > 45 ? "#FF5A5F" : a > 15 ? "#FFC93C" : "#3DD68C"; }
-function target() { return S.preview ? previewDeg : sensor.heading; }
+function target() { return sensor.heading; }
 // Heading shown on the dial follows the sensor like the iPhone app: ignore changes under 1 degree,
 // then ease to the new heading over about 0.18 s.
 let goal = null, animating = false;
 function updateDial() {
   const root = $("#hdial"); if (!root) { animating = false; return; }
   const t = target();
-  if (t != null && !S.preview) { const n = $(".hleft > .note:not(.calib)"); if (n && !n.querySelector("button")) n.remove(); }
-  if (t != null && (goal == null || S.preview || Math.abs(diff(t, goal)) >= 1)) goal = t;
+  if (t != null) { const n = $(".hleft > .note:not(.calib)"); if (n && !n.querySelector("button")) n.remove(); }
+  if (t != null && (goal == null || Math.abs(diff(t, goal)) >= 1)) goal = t;
   calibNote();
   if (goal != null && !animating) { animating = true; requestAnimationFrame(animateDial); }
   drawDial();
@@ -380,7 +381,7 @@ function drawDial() {
 }
 // Android reports magnetometer accuracy: 0 unreliable, 1 low. Ask for a figure-of-eight, like the iPhone app.
 function calibNote() {
-  const need = nativeOn && !S.preview && sensor.accuracy != null && sensor.accuracy <= 1;
+  const need = nativeOn && sensor.accuracy != null && sensor.accuracy <= 1;
   let n = $(".hleft > .note.calib");
   if (need && !n) {
     const host = $(".hleft .hdial"); if (!host) return;
@@ -399,10 +400,11 @@ function viewHome() {
   const greg = new Intl.DateTimeFormat(ar() ? "ar-u-nu-latn" : U[S.lang] ? S.lang + "-u-nu-latn" : "en-GB", { timeZone: p.tz, ...dopt }).format(new Date(shownMs));
   const hij = new Intl.DateTimeFormat((ar() || !U[S.lang] ? "ar-SA" : S.lang) + "-u-ca-islamic-umalqura-nu-latn", { timeZone: p.tz, day: "numeric", month: "long", year: "numeric" }).format(new Date(shownMs)).replace(/\s*هـ$/, "") + (U[S.lang] ? "" : " هـ");
   let note = "";
-  if (!S.preview) {
-    if (sensor.denied) note = L("This device has no compass. Turn on preview mode in Settings.");
+  const noCompass = ar() ? "هذا الجهاز بلا بوصلة." : L("This device has no compass.");
+  {
+    if (sensor.denied) note = noCompass;
     else if (needsPerm() && !sensor.listening) note = `<button class="btn" data-act="compass">${ar() ? "تشغيل البوصلة" : F("Start the compass")}</button>`;
-    else if (!sensor.available) note = L("This device has no compass. Turn on preview mode in Settings.");
+    else if (!sensor.available) note = noCompass;
     else if (sensor.heading == null) note = L("Starting the compass…");
   }
   const rows = PRAYERS.map(k => `<div class="r2" id="r-${k}" data-k="${k}"><div class="rl"><span class="ri">${PI[k]}</span><span class="rn">${pName(k)}</span><span class="rchip" id="rc-${k}"></span></div>
@@ -416,7 +418,7 @@ function viewHome() {
     <div id="bnrhost">${bannerHTML()}</div>
     <div class="hero2" id="hero"></div>
     ${dialHTML()}
-    ${S.preview ? `<div class="prev"><div class="cap">${L("PREVIEW HEADING")}</div><input type="range" min="0" max="359" step="1" value="${previewDeg}" id="prevSlider"></div>` : (note ? `<div class="note">${note}</div>` : "")}
+    ${(note ? `<div class="note">${note}</div>` : "")}
    </div>
    <div class="hright">
     <div class="plist2">${rows}</div>
@@ -427,9 +429,8 @@ function viewHome() {
 function afterHome() {
   dialEls = true;
   const p = S.place; const sl = $("#sunlayer"); if (sl) sl.innerHTML = sunLayerSVG(sunInfo(p.lat, p.lon, new Date()));
-  const sld = $("#prevSlider"); if (sld) sld.oninput = () => { previewDeg = +sld.value; updateDial(); };
   updateDial(); tickHome();
-  if (!S.preview) startCompass();
+  startCompass();
 }
 function tickHome() {
   const hero = $("#hero"); if (!hero) return;
@@ -583,7 +584,6 @@ function viewSettings() {
   ${sect("Adjust times", adj, L("Add or subtract minutes to match your local mosque or official timetable."))}
   ${sect("notifications", srow(L("Adhan alerts"), tog("notif", S.notif)) + srow(L("Remind"), sel("remind", [[0, L("Off")], [5, "5 " + L("min")], [10, "10 " + L("min")], [15, "15 " + L("min")], [30, "30 " + L("min")]], S.remind)) + srow(L("Sunrise alert"), tog("sunriseAlert", S.sunriseAlert)),
     (alertsDenied ? (ar() ? "التنبيهات مغلقة لهذا التطبيق في إعدادات الجهاز. " : F("Notifications are off for this app in device settings. ")) : "") + L("Tap the bell next to a prayer to mute just that prayer.") + (nativeOK() ? "" : (ar() ? " التنبيهات المجدولة تعمل في تطبيق الأندرويد." : " Scheduled alerts work in the Android app.")))}
-  ${sect("compass", srow(L("Preview mode (turn dial by hand)"), tog("preview", S.preview)))}
   ${sect("units", srow(L("Temperature"), sel("temp", [["c", L("Celsius (°C)")], ["f", L("Fahrenheit (°F)")]], S.temp)))}
   <div class="shead">${L("About")}</div><div class="card sbox"><div class="srow"><div class="sl">Rihal 1.0</div></div><a class="srow" href="${PRIVACY_URL}" target="_blank" rel="noopener"><div class="sl">${PRIVACY_LABEL[S.lang] || "Privacy policy"}</div><span aria-hidden="true">↗</span></a></div>
   <div class="sfoot">${ar() ? "كل الحسابات تتم على هذا الجهاز. تُرسل مدينتك التقريبية فقط عند البحث عن المساجد والطقس." : F("Everything is calculated on this device. Only your approximate location is sent when you look up mosques or weather.")}</div>`;
