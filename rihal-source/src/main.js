@@ -4,6 +4,7 @@ import { LocalNotifications } from "@capacitor/local-notifications";
 import { Geolocation } from "@capacitor/geolocation";
 import DATA from "./data.json";
 import AR from "./ar.json";
+import MORE from "./azkar_more.json";
 import { classicSVG, ringsSVG, updateDial as dialUpdate, sunLayerSVG } from "./dials.js";
 import { mushafHTML, mushafAfter, mushafIndexToggle, mushafSetPage, mushafBy, SURAS } from "./mushaf.js";
 import { Qibla, haversine, diff, norm, cardinal, sunInfo, METHODS, PRAYERS, prayerEvents, dayFor } from "./core.js";
@@ -556,21 +557,34 @@ async function loadMosques(force) {
 }
 
 /* ----- Azkhar tab ----- */
+/* "Other azkar": 23 more sections of Hisn al-Muslim, opened from one card */
+const MORE_T = { ar: "أذكار أخرى", en: "More azkar", tr: "Diğer zikirler", fr: "Autres adhkar", it: "Altri adhkar", de: "Weitere Adhkar", nl: "Meer adhkar", es: "Más adhkar", ur: "مزید اذکار", ta: "மேலும் திக்ர்கள்", ru: "Другие азкары" };
+const moreT = () => MORE_T[S.lang] || MORE_T.en;
+const isMore = () => typeof azkarCat === "string";
+function viewMoreGrid() {
+  const cards = MORE.map((g, i) => `<button class="acat sm" data-act="mcat" data-i="${i}"><span class="aci">${g.icon}</span><span class="act">${ar() ? g.ar : esc(g.en)}</span>${ar() ? "" : `<span class="ar act2">${g.ar}</span>`}<small>${g.items.length}</small></button>`).join("");
+  return `<div class="ahead"><button class="iconbtn" data-act="back">${rtl() ? I.right : I.left}</button><div class="atitle">${moreT()}</div></div><div class="agrid">${cards}</div>
+  <div class="foot">${ar() ? "الأذكار: حصن المسلم" : L("Quran: Tanzil · Adhkar: Hisn al-Muslim")}</div>`;
+}
 function viewAzkhar() {
+  if (azkarCat === "more") return viewMoreGrid();
+  if (isMore()) { const g = MORE[+azkarCat.slice(2)]; return azkarList(ar() ? g.ar : g.en, ar() ? "" : g.ar, g.items); }
   if (azkarCat != null) return viewAzkharDetail();
-  const cards = CATS.map((c, i) => `<button class="acat" data-act="cat" data-i="${i}"><span class="aci ${i === 2 ? "" : ""}">${["🌅", "🌇", I.dua, "🌙", "✈️"][i]}</span><span class="act">${catTitle(i)}</span>${ar() ? "" : `<span class="ar act2">${CAT_TITLES.ar[i]}</span>`}<small>${DATA.azkar[c].length}</small></button>`).join("");
+  const cards = CATS.map((c, i) => `<button class="acat" data-act="cat" data-i="${i}"><span class="aci ${i === 2 ? "" : ""}">${["🌅", "🌇", I.dua, "🌙", "✈️"][i]}</span><span class="act">${catTitle(i)}</span>${ar() ? "" : `<span class="ar act2">${CAT_TITLES.ar[i]}</span>`}<small>${DATA.azkar[c].length}</small></button>`).join("")
+    + `<button class="acat" data-act="mcat" data-i="-1"><span class="aci">📚</span><span class="act">${moreT()}</span>${ar() ? "" : `<span class="ar act2">${MORE_T.ar}</span>`}<small>${MORE.length}</small></button>`;
   return `${title("Azkhar", "الأذكار")}<div class="agrid">${cards}</div><div class="foot">${ar() ? "القرآن: تنزيل · الأذكار: حصن المسلم" : L("Quran: Tanzil · Adhkar: Hisn al-Muslim")}</div>`;
 }
-function transOf(d) { return d.tr[S.lang] || d.tr.en || ""; }
-function viewAzkharDetail() {
-  const i = azkarCat, items = DATA.azkar[CATS[i]];
+function transOf(d) { return d.tr ? (d.tr[S.lang] || d.tr.en || "") : ""; }
+function viewAzkharDetail() { const i = azkarCat; return azkarList(catTitle(i), ar() ? "" : CAT_TITLES.ar[i], DATA.azkar[CATS[i]]); }
+function azkarList(head, headAr, items) {
   const hint = { ar: "اضغط على البطاقة للعدّ. النصوص مضمّنة وتعمل بدون إنترنت.", tr: "Saymak için karta dokunun. Metinler çevrimdışı çalışır.", fr: "Touchez une carte pour compter. Les textes fonctionnent hors ligne.", it: "Tocca una scheda per contare. I testi funzionano offline.", de: "Karte antippen zum Zählen. Die Texte funktionieren offline.", nl: "Tik op een kaart om te tellen. De teksten werken offline.", es: "Toca una tarjeta para contar. Los textos funcionan sin conexión." }[S.lang] || (X[S.lang] && X[S.lang].hint) || "Tap a card to count. Texts work offline.";
   const done = { ar: "تم", tr: "Tamam", fr: "Terminé", it: "Fatto", de: "Fertig", nl: "Klaar", es: "Hecho" }[S.lang] || (X[S.lang] && X[S.lang].done) || "Done";
-  return `<div class="ahead"><button class="iconbtn" data-act="back">${rtl() ? I.right : I.left}</button><div class="atitle">${catTitle(i)}</div>${ar() ? "" : `<div class="atitle ar acc">${CAT_TITLES.ar[i]}</div>`}</div>
+  return `<div class="ahead"><button class="iconbtn" data-act="back">${rtl() ? I.right : I.left}</button><div class="atitle">${esc(head)}</div>${headAr ? `<div class="atitle ar acc">${esc(headAr)}</div>` : ""}</div>
   ${items.map(d => {
     const n = azkarCounts[d.id] || 0, fin = n >= d.n;
-    return `<div class="card dcard ${fin ? "fin" : ""}" data-act="count" data-id="${d.id}" data-n="${d.n}">
+    return `${d.h ? `<div class="ahsub">${esc(d.h)}</div>` : ""}<div class="card dcard ${fin ? "fin" : ""}" data-act="count" data-id="${d.id}" data-n="${d.n}">
       <div class="darb">${esc(d.ar)}</div>
+      ${d.note ? `<div class="dnote">${esc(d.note)}</div>` : ""}
       ${transOf(d) ? `<hr><div class="dtr">${esc(transOf(d))}</div>` : ""}
       <div class="dref">${esc(d.ref)}</div>
       <div class="dfoot"><div class="dbar"><i style="width:${Math.min(100, n / d.n * 100)}%"></i></div><div class="dcnt" id="c-${d.id}">${fin ? done : `${n} / ${d.n}`}</div></div></div>`;
@@ -669,7 +683,8 @@ const ACT = {
   day(el) { prayDay += +el.dataset.d; render(); },
   mute(el) { const k = el.dataset.k; S.muted[k] = !S.muted[k]; save(); scheduleAlerts(); render(); },
   cat(el) { azkarCat = +el.dataset.i; render(); $("#view").scrollTop = 0; },
-  back() { azkarCat = null; render(); },
+  mcat(el) { const i = +el.dataset.i; azkarCat = i < 0 ? "more" : "m:" + i; render(); $("#view").scrollTop = 0; },
+  back() { azkarCat = isMore() && azkarCat !== "more" ? "more" : null; render(); $("#view").scrollTop = 0; },
   count(el) {
     const id = el.dataset.id, n = +el.dataset.n, c = azkarCounts[id] || 0; if (c >= n) return;
     azkarCounts[id] = c + 1; vibr(); try { localStorage.setItem("rafeeq_counts", JSON.stringify(azkarCounts)); } catch (e) {}
