@@ -65,10 +65,10 @@ export function classicSVG(T, themed) {
        <g id="kaaba"><rect x="143" y="17" width="14" height="14" rx="2" fill="#10151F"/><rect x="143" y="22" width="14" height="2" fill="#FFB627"/></g>
      </g>
    </g>
-   <circle cx="150" cy="158" r="37" fill="${L.accentDark}"/>
-   <circle cx="150" cy="150" r="37" fill="url(#gCore)" stroke="#fff" stroke-opacity=".7" stroke-width="1.5"/>
-   <ellipse cx="150" cy="126" rx="21" ry="9" fill="#fff" fill-opacity=".35"/>
-   <g id="darrow" transform="translate(150 150)">${arrowSVG(26, 80, L.inner, L.accentLight, T.ok)}</g>
+   <!-- centre: the same circles as the Rings dial, with the mihrab arch pointing to the Qibla -->
+   <circle cx="150" cy="150" r="50" fill="${T.accent}" fill-opacity=".55"/>
+   <circle cx="150" cy="150" r="31" fill="${T.night}"/>
+   <g id="darrow" transform="translate(150 150)"><g transform="scale(.78)">${mihrabSVG(T.accent)}</g></g>
    <polygon id="dtri" points="139,-10 161,-10 150,8" fill="${T.accent}" stroke="${T.accent}" stroke-width="3" stroke-linejoin="round"/>
   </svg>`;
 }
@@ -101,6 +101,9 @@ export function updateDial(root, T, shown, q, aligned, tint) {
     set(g("qmark"), "transform", `rotate(${q} 150 150)`);
     set(g("kaaba"), "transform", `rotate(${shown - q} 150 24)`);
     set(g("darrow"), "transform", `translate(150 150) rotate(${toQ})`);
+    const mc = aligned ? T.ok : T.accent;
+    set(svg.querySelector("#darrow .mh-arch"), "stroke", mc);
+    set(svg.querySelector("#darrow .mh-in"), "fill", mc);
     svg.classList.toggle("aligned", !!aligned);
     const tri = g("dtri"); set(tri, "fill", aligned ? T.ok : T.accent); set(tri, "stroke", aligned ? T.ok : T.accent);
   } else {

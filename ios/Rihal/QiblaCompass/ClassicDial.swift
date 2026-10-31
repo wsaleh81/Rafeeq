@@ -36,7 +36,7 @@ struct ClassicDial: View {
 
     /// Hidden for now. Flip to bring them back: the Kaaba model in the centre, or a plain arrow pointing at the Qibla.
     static let showCube = false
-    static let showCenterArrow = true
+    static let showCenterArrow = false   // the centre now shows the mihrab arch (same as the Rings dial)
 
     private struct Look {
         let faceTop, faceBottom, thickTop, thickBottom, inner, ink, muted, cardinal, degree, accent, accentLight, accentDark: Color
@@ -163,12 +163,14 @@ struct ClassicDial: View {
 
     private func core(k: CGFloat) -> some View {
         ZStack {
-            Circle().fill(look.accentDark).frame(width: 74 * k, height: 74 * k).offset(y: 8 * k)
-            Circle().fill(RadialGradient(colors: [look.accentLight, look.accent, look.accentDark],
-                                         center: UnitPoint(x: 0.4, y: 0.28), startRadius: 0, endRadius: 80 * k))
-                .frame(width: 74 * k, height: 74 * k)
-            Circle().stroke(Color.white.opacity(0.7), lineWidth: 1.5 * k).frame(width: 74 * k, height: 74 * k)
-            Ellipse().fill(Color.white.opacity(0.35)).frame(width: 42 * k, height: 18 * k).offset(y: -24 * k)
+            // the same circles as the Rings dial, with the mihrab arch pointing to the Qibla (green when facing it)
+            Circle().fill(look.accent.opacity(0.55)).frame(width: 100 * k, height: 100 * k)
+            Circle().fill(look.inner).frame(width: 62 * k, height: 62 * k)
+            if turn == nil {
+                MihrabNeedle(color: aligned ? Theme.ok : look.accent, line: 2.4 * k)
+                    .frame(width: 30 * 0.78 * k, height: 64 * 0.78 * k)
+                    .rotationEffect(.degrees(qibla - heading))
+            }
             if let turn {
                 Circle().fill(turn.color).frame(width: 56 * k, height: 56 * k)
                     .overlay(Image(systemName: turn.icon).font(.system(size: 28 * k, weight: .bold)).foregroundStyle(Color.black.opacity(0.78)))
