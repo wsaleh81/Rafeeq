@@ -20,6 +20,13 @@ function arrowSVG(w, h, dark, light, glow) {
     <polygon class="ia-star" points="${star.join(" ")}" fill="${light}" stroke="${dark}" stroke-width="1"/></g></g>`;
 }
 
+// Rings dial centre: a mihrab (prayer niche) arch; its top points to the Qibla. Gold, green when aligned.
+function mihrabSVG(c) {
+  return `<g class="mihrab"><g class="ia-glow">
+    <path class="mh-in" d="M-7.5,22 L-7.5,0 Q-7.5,-9 0,-16 Q7.5,-9 7.5,0 L7.5,22" fill="${c}" fill-opacity=".4"/>
+    <path class="mh-arch" d="M-15,22 L-15,-5 Q-15,-20 0,-32 Q15,-20 15,-5 L15,22 Z" fill="none" stroke="${c}" stroke-width="3" stroke-linejoin="round"/></g></g>`;
+}
+
 export function classicSVG(T, themed) {
   const L = look(T, themed);
   let ticks = "";
@@ -73,7 +80,7 @@ export function ringsSVG(T) {
    <circle cx="150" cy="150" r="106.5" fill="${T.accent}" fill-opacity=".28"/>
    <circle cx="150" cy="150" r="68.25" fill="${T.accent}" fill-opacity=".55"/>
    <circle cx="150" cy="150" r="41.25" fill="${T.night}"/>
-   <g id="rarrow" transform="translate(150 150)">${arrowSVG(22.5, 69, T.accent, T.tint, T.ok)}</g>
+   <g id="rarrow" transform="translate(150 150)">${mihrabSVG(T.accent)}</g>
    <g id="rmark" transform="translate(150 34.5)">
      <circle id="rring" r="19.5" fill="${T.accent}" stroke="transparent" stroke-width="3"/>
      <rect x="-6.75" y="-7.5" width="13.5" height="15" rx="2" fill="${T.night}"/><rect x="-6.75" y="-4.5" width="13.5" height="2" fill="${T.sun}"/>
@@ -98,10 +105,10 @@ export function updateDial(root, T, shown, q, aligned, tint) {
     const tri = g("dtri"); set(tri, "fill", aligned ? T.ok : T.accent); set(tri, "stroke", aligned ? T.ok : T.accent);
   } else {
     set(g("rarrow"), "transform", `translate(150 150) rotate(${toQ})`);
-    // the Islamic arrow takes the zone colour (red / yellow / green); it glows when facing the Qibla
-    const c = tint || T.accent;
-    for (const el of svg.querySelectorAll("#rarrow .ia-tail, #rarrow .ia-shaft, #rarrow .ia-head")) set(el, "fill", c);
-    set(svg.querySelector("#rarrow .ia-star"), "stroke", c);
+    // the mihrab arch stays in the theme accent (gold) and turns green and glows when facing the Qibla
+    const c = aligned ? T.ok : T.accent;
+    set(svg.querySelector("#rarrow .mh-arch"), "stroke", c);
+    set(svg.querySelector("#rarrow .mh-in"), "fill", c);
     svg.classList.toggle("aligned", !!aligned);
     set(g("rmark"), "transform", `translate(${150 + 115.5 * sin(toQ)} ${150 - 115.5 * cos(toQ)})`);
     set(g("rring"), "stroke", aligned ? T.ok : "transparent");

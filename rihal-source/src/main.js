@@ -209,8 +209,8 @@ let weather = null;
 async function loadWeather() {
   try {
     const p = S.place;
-    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${r2(p.lat)}&longitude=${r2(p.lon)}&current=temperature_2m,weather_code,is_day&timezone=auto`);
-    const j = await r.json(); weather = { t: j.current.temperature_2m, code: j.current.weather_code, day: j.current.is_day === 1 };
+    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${r2(p.lat)}&longitude=${r2(p.lon)}&current=temperature_2m,relative_humidity_2m,weather_code,is_day&timezone=auto`);
+    const j = await r.json(); weather = { t: j.current.temperature_2m, h: j.current.relative_humidity_2m, code: j.current.weather_code, day: j.current.is_day === 1 };
     const el = $("#wchip"); if (el) el.outerHTML = weatherChip();
   } catch (e) {}
 }
@@ -343,7 +343,9 @@ function bannerHTML() {
 function weatherBlock() {
   const w = weather;
   const txt = !w ? (net.online ? "…" : "—") : (S.temp === "f" ? Math.round(w.t * 9 / 5 + 32) + "°F" : Math.round(w.t) + "°C");
-  return `<div class="wblk" id="wchip"><span class="wi">${w ? wIcon(w.code, w.day) : (net.online ? "☁️" : "📴")}</span><b>${txt}</b></div>`;
+  const hum = w && w.h != null ? Math.round(w.h) + "%" : (!w && net.online ? "…" : "—");
+  return `<div class="wgrp" id="wchip"><div class="wblk"><span class="wi">${w ? wIcon(w.code, w.day) : (net.online ? "☁️" : "📴")}</span><b>${txt}</b></div>
+    <div class="wblk" aria-label="${ar() ? "الرطوبة" : L("Humidity")}"><span class="wi">💧</span><b>${hum}</b></div></div>`;
 }
 
 function zoneHex(d) { if (d == null) return T.muted; const a = Math.abs(d); return a > 45 ? "#FF5A5F" : a > 15 ? "#FFC93C" : "#3DD68C"; }
@@ -437,7 +439,7 @@ function tickHome() {
   const next = counted.find(e => e.date > now), prev = [...counted].reverse().find(e => e.date <= now);
   const frac = next && prev ? Math.max(0.02, Math.min(1, (now - prev.date) / (next.date - prev.date))) : 0;
   const C = 2 * Math.PI * 46.5;
-  hero.innerHTML = `<div class="hn"><span class="nowb">${L("NOW")}</span><div class="hnm"><span class="hic">${prev ? PI[prev.prayer] : I.clock}</span><b>${prev ? pName(prev.prayer) : "—"}</b></div><div class="hnt">${prev ? clock(prev.date, p.tz) : "--:--"}</div></div>
+  hero.innerHTML = `<div class="hn"><span class="nowb">${L("NOW")}</span><div class="hnm"><span class="hic">${prev ? PI[prev.prayer] : I.clock}</span><b>${prev ? pName(prev.prayer) : "—"}</b><span class="hnt">${prev ? clock(prev.date, p.tz) : "--:--"}</span></div></div>
     ${weatherBlock()}
     <div class="hrg"><svg viewBox="0 0 104 104"><defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="var(--accent)"/><stop offset="1" stop-color="var(--deep)"/></linearGradient></defs><circle cx="52" cy="52" r="46.5" fill="none" stroke="var(--tile)" stroke-width="7"/><circle cx="52" cy="52" r="46.5" fill="none" stroke="url(#rg)" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C * frac} ${C}" transform="rotate(-90 52 52)"/></svg>
       <div class="hrt"><div class="r1"><i>${next ? PI[next.prayer] : ""}</i>${next ? (ar() ? `${pName(next.prayer)} بعد` : F("{0} in", pName(next.prayer))) : "—"}</div><div class="r2t">${next ? cd(next.date - now) : "--:--:--"}</div><div class="r3">${next ? (ar() ? "عند " + clock(next.date, p.tz) : F("at {0}", clock(next.date, p.tz))) : L("Not available here")}</div></div></div>`;
